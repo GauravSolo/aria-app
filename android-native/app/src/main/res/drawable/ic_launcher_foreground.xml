@@ -1,0 +1,10 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 4-point sparkle, centered in the safe zone -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,28 L59.7,48.3 L80,54 L59.7,59.7 L54,80 L48.3,59.7 L28,54 L48.3,48.3 Z" />
+</vector>

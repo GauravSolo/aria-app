@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.Aria" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/aria_bg</item>
+        <item name="android:statusBarColor">@color/aria_bg</item>
+        <item name="android:navigationBarColor">@color/aria_bg</item>
+    </style>
+</resources>

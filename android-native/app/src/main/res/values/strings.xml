@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Aria</string>
+    <string name="widget_label">Aria — Today</string>
+    <string name="widget_description">Your day at a glance: tasks, water and streaks.</string>
+</resources>
