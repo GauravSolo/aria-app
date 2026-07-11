@@ -1,15 +1,11 @@
-import { registerWidgetTaskHandler, requestWidgetUpdate } from 'react-native-android-widget';
+import { requestWidgetUpdate } from 'react-native-android-widget';
 
 import { AriaWidget } from './AriaWidget';
 import { loadWidgetSnapshot } from './snapshot';
-import { widgetTaskHandler } from './widgetTaskHandler';
-
-// Register the headless render handler at module load (also runs in the widget's
-// background JS context, which loads the same entry).
-registerWidgetTaskHandler(widgetTaskHandler);
 
 export function registerAriaWidgetTask(): void {
-  // Registration already happened at import time; kept for a stable call site.
+  // The task handler is registered in index.js (the JS entry point) so it also runs
+  // in the widget's headless background context. Nothing to do here.
 }
 
 /** Push fresh data into any placed Aria widgets. Safe no-op if none exist. */

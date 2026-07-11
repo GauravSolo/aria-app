@@ -23,10 +23,37 @@
 | 14 | Docs: setup, run, testing checklist, future ideas | ✅ |
 
 ## Current focus
-✅ ALL 14 STEPS COMPLETE — MVP built. Remaining real-world work is on the user's machine:
-add Supabase keys, run a mobile dev build (for notifications + Android widget), and build
-the Mac app/widget in Xcode (see docs/SETUP.md). Git commits still paused pending the
-user's personal git identity (see decisions log).
+✅ ALL 14 STEPS BUILT. On-device bring-up done (2026-07-11):
+- **Android app**: builds + runs (dev build on emulator; needs Android Studio + JDK21 +
+  Gradle pinned to 8.14.3 — RN 0.85 template shipped Gradle 9.3.1 which breaks with
+  `IBM_SEMERU`). Auth + Supabase sync verified.
+- **Mac app**: builds + runs in Xcode (install to /Applications so the widget registers);
+  auth + sync verified. Custom app icon added (matches Android artwork, rounded squircle).
+- **Cross-device sync**: verified both directions (phone ↔ Mac).
+- ⚠️ **Both home-screen widgets are PARKED (blocked by the bleeding-edge SDK):**
+  - *Android widget*: `react-native-android-widget@0.20.3` targets RN 0.83 and its native
+    render pipeline doesn't work under RN 0.85's **New Architecture** (JS task returns
+    SUCCESS but the bitmap never displays → blank). RN 0.82+ **forbids disabling** New Arch
+    (`newArchEnabled=false` is ignored), so there's no workaround until the library supports
+    new arch. Code is left in place, non-functional on SDK 56.
+  - *Mac widget*: renders correctly, but live data sharing via the App Group container file
+    isn't reaching the widget on a **free (personal-team) Apple ID**; needs a paid dev
+    account or more entitlement work. Parked.
+  - Revisit options in docs/FUTURE.md (library update / SDK downgrade / native Kotlin+Glance
+    & Swift WidgetKit data path).
+- ✅ **NEW `android-native/`** — a full **native Kotlin + Jetpack Compose + Glance** Android
+  app built specifically so the home-screen widget works (Glance is native; app+widget share
+  DataStore in-process → no RN/new-arch/App-Group issues). Same Supabase backend (applicationId
+  `com.aria.app`). Auth + dashboard + planner + habits + water + Glance widget.
+  ✅ **VERIFIED**: compiles → builds APK → installs → runs on emulator; **widget renders with
+  real data on device** (user-confirmed). This is the working Android widget path.
+  Toolchain: AGP 8.13.2 · Gradle 8.14.5 · Kotlin 2.3.21 · Compose BOM 2026.06.01 ·
+  supabase-kt 3.6.0 · Ktor 3.5.1. Notes: keep AGP on 8.13.2 (decline Studio's AGP-9 upgrade);
+  `SessionManager.loadSession()` is non-null in 3.x; uses `compilerOptions` DSL. See
+  android-native/README.md.
+
+Git: now committing as the user's personal identity (gauravsharma9339@gmail.com),
+pushed to origin `GauravSolo/aria-app` (github-personal SSH alias).
 
 Step 14 done — docs/SETUP.md (full backend + phone + Mac build/run), docs/TESTING.md
 (manual checklist), docs/FUTURE.md (improvement ideas); README + folder READMEs updated.

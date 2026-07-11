@@ -3,8 +3,11 @@ import Foundation
 import WidgetKit
 #endif
 
-/// Shared between the app and the widget extension (App Group). The app writes a
-/// snapshot after data changes; the widget reads it to render.
+/// Shared between the app and the widget extension via the App Group **container file**
+/// (not UserDefaults — `UserDefaults(suiteName:)` for an app group is blocked by the
+/// macOS sandbox with a "accessing preferences outside an application's container"
+/// error). Reading/writing a file in `containerURL(forSecurityApplicationGroupIdentifier:)`
+/// is sandbox-permitted for both processes.
 let ariaAppGroup = "group.com.aria.planner"
 
 struct WidgetSnapshot: Codable {
@@ -27,20 +30,23 @@ struct WidgetSnapshot: Codable {
 }
 
 enum WidgetBridge {
-    static let key = "aria.widget.snapshot"
+    private static var fileURL: URL? {
+        FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: ariaAppGroup)?
+            .appendingPathComponent("widget-snapshot.json")
+    }
 
     static func write(_ snap: WidgetSnapshot) {
-        guard let data = try? JSONEncoder().encode(snap),
-              let store = UserDefaults(suiteName: ariaAppGroup) else { return }
-        store.set(data, forKey: key)
+        guard let url = fileURL, let data = try? JSONEncoder().encode(snap) else { return }
+        try? data.write(to: url, options: .atomic)
         #if canImport(WidgetKit)
         WidgetCenter.shared.reloadAllTimelines()
         #endif
     }
 
     static func read() -> WidgetSnapshot {
-        guard let store = UserDefaults(suiteName: ariaAppGroup),
-              let data = store.data(forKey: key),
+        guard let url = fileURL,
+              let data = try? Data(contentsOf: url),
               let snap = try? JSONDecoder().decode(WidgetSnapshot.self, from: data)
         else { return .empty }
         return snap

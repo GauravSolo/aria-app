@@ -24,7 +24,15 @@ function Stat({ value, label, color }: { value: string; label: string; color: Co
   );
 }
 
-export function AriaWidget({ snapshot, width = 200 }: { snapshot: WidgetSnapshot; width?: number }) {
+export function AriaWidget({
+  snapshot,
+  width = 200,
+  height = 150,
+}: {
+  snapshot: WidgetSnapshot;
+  width?: number;
+  height?: number;
+}) {
   const compact = width < 170;
   const nextTitle = snapshot.nextTaskTitle
     ? snapshot.nextTaskTitle.length > 22
