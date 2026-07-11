@@ -1,0 +1,41 @@
+# ── Claude / editor local state ─────────────────────────────
+.claude/
+.DS_Store
+*.log
+
+# ── Secrets / env ───────────────────────────────────────────
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.local
+
+# ── Node / Expo (mobile/) ───────────────────────────────────
+node_modules/
+.expo/
+dist/
+web-build/
+*.tsbuildinfo
+npm-debug.*
+yarn-error.*
+.metro-health-check*
+expo-env.d.ts
+
+# ── Native build artifacts ──────────────────────────────────
+mobile/android/
+mobile/ios/
+!mobile/android/app/src/main/java/**  # keep widget source if ejected (added later)
+
+# ── macOS / Xcode (macos/) ──────────────────────────────────
+*.xcuserstate
+xcuserdata/
+DerivedData/
+*.xcworkspace/xcuserdata/
+.build/
+Packages.resolved.bak
+
+# ── Supabase local ──────────────────────────────────────────
+backend/.branches/
+backend/.temp/
+supabase/.branches/
+supabase/.temp/
