@@ -38,7 +38,7 @@ final class AuthModel: ObservableObject {
             status = .signedOut
         }
         // Observe future auth changes.
-        Foundation.Task {
+        _Concurrency.Task {
             for await change in Supa.client.auth.authStateChanges {
                 await MainActor.run { self.apply(change.session) }
             }

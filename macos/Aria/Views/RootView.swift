@@ -61,7 +61,7 @@ struct MainView: View {
                     Image(systemName: "person.crop.circle").foregroundStyle(Brand.indigo)
                     Text(auth.email ?? "Account").font(.footnote).lineLimit(1)
                     Spacer()
-                    Button { Foundation.Task { await auth.signOut() } } label: {
+                    Button { _Concurrency.Task { await auth.signOut() } } label: {
                         Image(systemName: "rectangle.portrait.and.arrow.right")
                     }.buttonStyle(.plain)
                 }.padding(10)

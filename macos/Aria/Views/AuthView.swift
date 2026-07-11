@@ -32,7 +32,7 @@ struct AuthView: View {
                     Text(err).font(.footnote).foregroundStyle(Brand.red)
                 }
                 Button {
-                    Foundation.Task {
+                    _Concurrency.Task {
                         if isSignUp { await auth.signUp(email, password, name: name) }
                         else { await auth.signIn(email, password) }
                     }
