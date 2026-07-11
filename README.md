@@ -19,11 +19,26 @@ docs/      ARCHITECTURE.md · DATA_MODEL.md · PROGRESS.md (+ SETUP/testing late
 Two native UIs (phone in TypeScript, Mac in Swift) over **one Supabase backend**.
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the why and how.
 
+## Get started
+
+- **Setup & run (Supabase + phone + Mac):** [docs/SETUP.md](docs/SETUP.md)
+- **Test checklist:** [docs/TESTING.md](docs/TESTING.md)
+- **Future ideas:** [docs/FUTURE.md](docs/FUTURE.md)
+
+```bash
+# Backend: run backend/schema.sql in your Supabase SQL editor.
+cd mobile && npm install && cp .env.example .env   # add Supabase keys, then:
+npx expo start                 # UI preview (notifications/widget need a dev build)
+# Mac:
+cd macos && brew install xcodegen && xcodegen generate && open Aria.xcodeproj
+```
+
 ## Status
 
-This is built incrementally, one feature per commit. **Current status lives in
-[docs/PROGRESS.md](docs/PROGRESS.md).** Setup & run instructions for phone and Mac are
-added in the final docs step (and summarized in each app folder's README as it lands).
+MVP complete: backend, full Android/mobile app, native Android widget, Mac SwiftUI app,
+and macOS widget. **Live status & what each step delivered:** [docs/PROGRESS.md](docs/PROGRESS.md).
+The mobile app type-checks (`tsc`) and bundles (`expo export`) clean; native widgets and
+the Mac app are built on your machine (Xcode / a device dev build) per docs/SETUP.md.
 
 ## Quick orientation for developers
 

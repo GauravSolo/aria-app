@@ -60,8 +60,9 @@ Supabase SQL in `backend/`, and both app implementations.
 - **IDs:** UUID v4 generated **client-side** (so offline creates work + sync cleanly).
 - **Dates:** store timestamps as UTC ISO strings / `timestamptz`. "Per-day" things
   (`log_date`, `due_date`, `occurrence_date`) are plain `date` in the user's local day.
-- **Mobile folders:** `app/` = expo-router screens only; logic lives in
-  `src/{stores,lib,sync,components,theme,types}`. Screens stay thin.
+- **Mobile folders:** `src/app/` = expo-router screens only (route groups
+  `(auth)` + `(tabs)`); logic lives in `src/{stores,lib,sync,components,theme,types}`.
+  Screens stay thin. Path alias `@/*` → `mobile/src/*`. UI kit in `src/components/ui`.
 - **No business logic in components.** Streak/water/analytics math lives in
   `src/lib/*` pure functions so it's testable and mirrored 1:1 in Swift.
 - **Enums** (category, priority, frequency, …) are defined once in `docs/DATA_MODEL.md`
