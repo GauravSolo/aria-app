@@ -4,15 +4,18 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -68,9 +71,29 @@ fun AuthScreen(vm: AppViewModel) {
         Spacer(Modifier.height(10.dp))
         OutlinedTextField(password, { password = it }, label = { Text("Password") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
 
-        error?.let {
-            Spacer(Modifier.height(8.dp))
-            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        error?.let { msg ->
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.errorContainer)
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    Icons.Filled.ErrorOutline,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    friendlyAuthError(msg),
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
         }
 
         Spacer(Modifier.height(20.dp))
@@ -86,4 +109,19 @@ fun AuthScreen(vm: AppViewModel) {
             Text(if (isSignUp) "Already have an account? Log in" else "New here? Create an account")
         }
     }
+}
+
+/** Map raw Supabase auth errors to friendly, user-facing messages. */
+private fun friendlyAuthError(msg: String): String = when {
+    msg.contains("Invalid login credentials", true) || msg.contains("invalid_credentials", true) ->
+        "Incorrect email or password."
+    msg.contains("Email not confirmed", true) -> "Please confirm your email, then log in."
+    msg.contains("already registered", true) || msg.contains("already been registered", true) ->
+        "That email is already registered — try logging in instead."
+    msg.contains("Password should be at least", true) -> "Password must be at least 6 characters."
+    msg.contains("valid email", true) || msg.contains("Unable to validate email", true) ->
+        "Please enter a valid email address."
+    msg.contains("network", true) || msg.contains("resolve host", true) || msg.contains("timeout", true) ->
+        "Network error — check your connection and try again."
+    else -> msg
 }
