@@ -9,8 +9,14 @@ import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.LocalContext
+import androidx.glance.action.ActionParameters
+import androidx.glance.action.actionParametersOf
 import androidx.glance.action.clickable
+import androidx.glance.appwidget.CheckBox
+import androidx.glance.appwidget.CheckboxDefaults
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.action.ActionCallback
+import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
@@ -30,6 +36,17 @@ import androidx.glance.unit.ColorProvider
 import com.aria.app.MainActivity
 import com.aria.app.data.WidgetSnapshot
 import com.aria.app.data.WidgetStore
+import com.aria.app.data.WidgetSync
+
+/** Passed to ToggleTaskAction so it knows which task to complete. */
+val taskIdKey = ActionParameters.Key<String>("task_id")
+
+/** Widget checkbox tap → mark the task done + refresh the widget. */
+class ToggleTaskAction : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        parameters[taskIdKey]?.let { WidgetSync.completeTask(context, it) }
+    }
+}
 
 class AriaWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -68,12 +85,37 @@ private fun WidgetContent(snap: WidgetSnapshot) {
             StatCol("${snap.pendingTasks}", "Tasks", Indigo, GlanceModifier.defaultWeight())
             StatCol("${snap.habitsDone}/${snap.habitsTotal}", "Habits", Green, GlanceModifier.defaultWeight())
         }
-        Spacer(GlanceModifier.height(10.dp))
-        Text(
-            snap.nextTaskTitle ?: "No tasks left 🎉",
-            maxLines = 1,
-            style = TextStyle(color = ColorProvider(Text0), fontSize = 13.sp, fontWeight = FontWeight.Medium),
-        )
+        Spacer(GlanceModifier.height(8.dp))
+        if (snap.tasks.isEmpty()) {
+            Text(
+                "No tasks left 🎉",
+                maxLines = 1,
+                style = TextStyle(color = ColorProvider(Muted), fontSize = 13.sp, fontWeight = FontWeight.Medium),
+            )
+        } else {
+            Column(modifier = GlanceModifier.fillMaxWidth()) {
+                snap.tasks.forEach { task ->
+                    CheckBox(
+                        checked = false,
+                        onCheckedChange = actionRunCallback<ToggleTaskAction>(actionParametersOf(taskIdKey to task.id)),
+                        text = task.title,
+                        maxLines = 1,
+                        style = TextStyle(color = ColorProvider(Text0), fontSize = 13.sp, fontWeight = FontWeight.Medium),
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = ColorProvider(Green),
+                            uncheckedColor = ColorProvider(Muted),
+                        ),
+                        modifier = GlanceModifier.fillMaxWidth().padding(vertical = 2.dp),
+                    )
+                }
+                if (snap.pendingTasks > snap.tasks.size) {
+                    Text(
+                        "+${snap.pendingTasks - snap.tasks.size} more",
+                        style = TextStyle(color = ColorProvider(Muted), fontSize = 11.sp),
+                    )
+                }
+            }
+        }
     }
 }
 

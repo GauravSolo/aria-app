@@ -438,6 +438,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val scheduled = activeHabits().map { habitStats(it) }.filter { it.scheduledToday }
         val snap = WidgetSnapshot(
             nextTaskTitle = pending.firstOrNull()?.title,
+            tasks = pending.take(6).map { WidgetTask(it.id, it.title) },
             pendingTasks = pending.size,
             totalTasks = dayTasks.size,
             waterMl = waterToday(),

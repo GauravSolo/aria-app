@@ -11,8 +11,12 @@ import kotlinx.serialization.json.Json
 val Context.widgetDataStore by preferencesDataStore(name = "aria_widget")
 
 @Serializable
+data class WidgetTask(val id: String, val title: String)
+
+@Serializable
 data class WidgetSnapshot(
     val nextTaskTitle: String? = null,
+    val tasks: List<WidgetTask> = emptyList(),
     val pendingTasks: Int = 0,
     val totalTasks: Int = 0,
     val waterMl: Int = 0,
