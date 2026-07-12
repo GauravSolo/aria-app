@@ -60,8 +60,7 @@ fun CalendarWidgetContent(snap: StreakSnapshot?, emptyHint: String) {
             Spacer(GlanceModifier.defaultWeight())
             Text("🔥 ${snap.current}", style = TextStyle(color = ColorProvider(Amber), fontSize = 13.sp, fontWeight = FontWeight.Bold))
         }
-        Text("${snap.monthLabel} · best ${snap.longest}", style = TextStyle(color = ColorProvider(Muted), fontSize = 11.sp))
-        Spacer(GlanceModifier.height(8.dp))
+        Spacer(GlanceModifier.height(10.dp))
         // Month grid: one column per week (vertical).
         Row(modifier = GlanceModifier.fillMaxWidth()) {
             snap.weeks.forEach { week ->
