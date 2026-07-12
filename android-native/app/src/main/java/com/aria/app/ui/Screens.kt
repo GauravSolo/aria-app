@@ -63,9 +63,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aria.app.data.AppViewModel
@@ -136,6 +142,24 @@ fun MainScaffold(vm: AppViewModel, nav: Nav) {
 }
 
 private fun Modifier.screenScroll() = this
+
+/** A vertically-scrollable box capped at [maxHeight]. While the section itself
+ *  can scroll, it keeps the drag to itself and does NOT hand off to the page —
+ *  so scrolling a section only scrolls that section. Short (non-scrollable)
+ *  sections let the gesture through so the page can still scroll. */
+@Composable
+private fun Modifier.cappedScroll(maxHeight: Dp): Modifier {
+    val state = rememberScrollState()
+    val block = remember(state) {
+        object : NestedScrollConnection {
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset =
+                if (state.maxValue > 0) available else Offset.Zero
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity =
+                if (state.maxValue > 0) available else Velocity.Zero
+        }
+    }
+    return this.heightIn(max = maxHeight).nestedScroll(block).verticalScroll(state)
+}
 
 // ── Today / Dashboard ──────────────────────────────────────────────────────
 @Composable
@@ -212,7 +236,7 @@ private fun DashboardScreen(vm: AppViewModel, nav: Nav) {
         when {
             dayTasks.isEmpty() -> AriaCard { Text("No tasks today. Tap \"Task\" to plan your day.", color = a.textSecondary, fontSize = 14.sp) }
             pending.isEmpty() -> AriaCard { Text("All tasks done — great work! 🎉", color = a.success, fontSize = 14.sp) }
-            else -> Column(Modifier.heightIn(max = 290.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            else -> Column(Modifier.cappedScroll(290.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 pending.forEach { TaskCard(vm, it, today) { nav.push(Route.TaskForm(it.id, today)) } }
             }
         }
@@ -221,7 +245,7 @@ private fun DashboardScreen(vm: AppViewModel, nav: Nav) {
         if (scheduled.isNotEmpty()) {
             SectionHeader("Today's habits", "$habitsDone/${scheduled.size}")
             AriaCard {
-                Column(Modifier.heightIn(max = 168.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.cappedScroll(168.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     scheduled.forEach { (h, st) ->
                         val color = h.color?.let { runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() } ?: a.category(h.category)
                         val target = maxOf(1, h.target_count)
@@ -258,7 +282,7 @@ private fun DashboardScreen(vm: AppViewModel, nav: Nav) {
         if (upcoming.isNotEmpty()) {
             SectionHeader("Upcoming reminders") { nav.push(Route.Reminders) }
             AriaCard {
-                Column(Modifier.heightIn(max = 150.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.cappedScroll(150.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     upcoming.forEach { (r, _) ->
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             Box(Modifier.size(8.dp).clip(CircleShape).background(a.accent))
