@@ -462,37 +462,38 @@ private fun MonthCalendar(color: Color, gridFor: (Int, Int) -> List<List<Logic.D
             }
         }
 
-        // Grid: weekday initials down the left, one column per week of the month.
-        // Week columns are weighted so the grid fills the full card width.
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) {
-            Column(verticalArrangement = Arrangement.spacedBy(gap)) {
+        // Standard month grid: weekday initials on top, one row per week.
+        Column(verticalArrangement = Arrangement.spacedBy(gap)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) {
                 WEEKDAY_INITIALS.forEach { letter ->
-                    Box(Modifier.size(width = 16.dp, height = rowH), contentAlignment = Alignment.Center) {
-                        Text(letter, color = a.textMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        Text(letter, color = a.textMuted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
             grid.forEach { week ->
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(gap)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) {
                     for (wd in 0 until 7) {
                         val day = week.getOrNull(wd)
-                        if (day == null) {
-                            Box(Modifier.fillMaxWidth().height(rowH))
-                        } else {
-                            val bg = when (day.status) {
-                                Logic.DayStatus.COMPLETED -> color
-                                Logic.DayStatus.MISSED -> a.dangerSoft
-                                Logic.DayStatus.PENDING -> a.surface
-                                Logic.DayStatus.OFF -> a.track
-                                Logic.DayStatus.FUTURE -> a.surfaceAlt
-                            }
-                            val fg = if (day.status == Logic.DayStatus.COMPLETED) a.onPrimary else a.textMuted
-                            Box(
-                                Modifier.fillMaxWidth().height(rowH).clip(RoundedCornerShape(8.dp)).background(bg)
-                                    .then(if (day.status == Logic.DayStatus.PENDING) Modifier.border(1.5.dp, color, RoundedCornerShape(8.dp)) else Modifier),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text("${day.date.substring(8).trimStart('0')}", color = fg, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        Box(Modifier.weight(1f)) {
+                            if (day != null) {
+                                val bg = when (day.status) {
+                                    Logic.DayStatus.COMPLETED -> color
+                                    Logic.DayStatus.MISSED -> a.dangerSoft
+                                    Logic.DayStatus.PENDING -> a.surface
+                                    Logic.DayStatus.OFF -> a.track
+                                    Logic.DayStatus.FUTURE -> a.surfaceAlt
+                                }
+                                val fg = if (day.status == Logic.DayStatus.COMPLETED) a.onPrimary else a.textMuted
+                                Box(
+                                    Modifier.fillMaxWidth().height(rowH).clip(RoundedCornerShape(8.dp)).background(bg)
+                                        .then(if (day.status == Logic.DayStatus.PENDING) Modifier.border(1.5.dp, color, RoundedCornerShape(8.dp)) else Modifier),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text("${day.date.substring(8).trimStart('0')}", color = fg, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                                }
+                            } else {
+                                Box(Modifier.fillMaxWidth().height(rowH))
                             }
                         }
                     }
