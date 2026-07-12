@@ -45,7 +45,7 @@ private fun parseColor(hex: String?): Color =
 fun CalendarWidgetContent(snap: StreakSnapshot?, emptyHint: String) {
     val context = LocalContext.current
     Column(
-        modifier = GlanceModifier.fillMaxSize().background(Bg).cornerRadius(20.dp).padding(14.dp)
+        modifier = GlanceModifier.fillMaxSize().background(Bg).cornerRadius(20.dp).padding(12.dp)
             .clickable(actionStartActivity(Intent(context, MainActivity::class.java))),
     ) {
         if (snap == null || snap.name.isEmpty()) {
@@ -60,7 +60,7 @@ fun CalendarWidgetContent(snap: StreakSnapshot?, emptyHint: String) {
             Spacer(GlanceModifier.defaultWeight())
             Text("🔥 ${snap.current}", style = TextStyle(color = ColorProvider(Amber), fontSize = 13.sp, fontWeight = FontWeight.Bold))
         }
-        Spacer(GlanceModifier.height(10.dp))
+        Spacer(GlanceModifier.height(6.dp))
         // Month grid: one column per week (vertical).
         Row(modifier = GlanceModifier.fillMaxWidth()) {
             snap.weeks.forEach { week ->
@@ -72,9 +72,9 @@ fun CalendarWidgetContent(snap: StreakSnapshot?, emptyHint: String) {
                             2 -> MissedC
                             else -> Track
                         }
-                        Box(GlanceModifier.height(22.dp), contentAlignment = Alignment.Center) {
-                            if (code == -1) Spacer(GlanceModifier.size(18.dp))
-                            else Box(GlanceModifier.size(18.dp).cornerRadius(5.dp).background(c)) {}
+                        Box(GlanceModifier.height(17.dp), contentAlignment = Alignment.Center) {
+                            if (code == -1) Spacer(GlanceModifier.size(13.dp))
+                            else Box(GlanceModifier.size(13.dp).cornerRadius(4.dp).background(c)) {}
                         }
                     }
                 }
