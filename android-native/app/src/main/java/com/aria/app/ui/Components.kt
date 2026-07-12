@@ -104,7 +104,7 @@ fun Chip(label: String, color: Color? = null, icon: ImageVector? = null) {
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         if (icon != null) Icon(icon, null, tint = fg, modifier = Modifier.size(13.dp))
-        Text(label, color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        Text(label, color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
     }
 }
 

@@ -8,6 +8,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -18,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,6 +34,7 @@ import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.WaterDrop
@@ -61,6 +65,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -221,12 +226,12 @@ private fun DashboardScreen(vm: AppViewModel, nav: Nav) {
                     scheduled.take(4).forEach { (h, st) ->
                         val color = h.color?.let { runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() } ?: a.category(h.category)
                         Row(Modifier.fillMaxWidth().clickable { nav.push(Route.HabitDetail(h.id)) }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            AriaCheckbox(st.doneToday, color) { vm.toggleHabit(h) }
                             Text(h.name, color = a.text, fontSize = 16.sp, modifier = Modifier.weight(1f), maxLines = 1)
                             if (st.current > 0) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                                 Icon(Icons.Filled.LocalFireDepartment, null, tint = a.warning, modifier = Modifier.size(13.dp))
                                 Text("${st.current}", color = a.textSecondary, fontSize = 13.sp)
                             }
+                            HabitToggle(vm, h, st, color)
                         }
                     }
                 }
@@ -297,6 +302,7 @@ fun IconChip(icon: ImageVector, tint: Color? = null, onClick: () -> Unit) {
 
 // ── Task card ──────────────────────────────────────────────────────────────
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 fun TaskCard(vm: AppViewModel, task: Task, date: String, onPress: () -> Unit) {
     val a = LocalAria.current
     val done = vm.isTaskDone(task, date)
@@ -315,7 +321,7 @@ fun TaskCard(vm: AppViewModel, task: Task, date: String, onPress: () -> Unit) {
                     textDecoration = if (done) androidx.compose.ui.text.style.TextDecoration.LineThrough else null,
                 )
                 task.description?.let { if (it.isNotBlank()) Text(it, color = a.textSecondary, fontSize = 13.sp, maxLines = 1) }
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (time != null) Chip(time, icon = Icons.Outlined.Schedule)
                     Chip(task.category.replaceFirstChar { it.uppercase() }, color = catColor)
                     if (task.recurrence != "none") Chip(Logic.recurrenceLabel(task), icon = Icons.Filled.Repeat)
@@ -485,10 +491,42 @@ fun HabitCard(vm: AppViewModel, h: Habit, st: Logic.HabitStats, onPress: () -> U
                     }
                 }
             }
-            if (st.scheduledToday) AriaCheckbox(st.doneToday, color) { vm.toggleHabit(h) }
+            if (st.scheduledToday) HabitToggle(vm, h, st, color)
             else Text("Rest day", color = a.textMuted, fontSize = 12.sp)
         }
     }
+}
+
+/** Checkbox for once-a-day habits; a −/+ counter for multi-target habits. */
+@Composable
+fun HabitToggle(vm: AppViewModel, h: Habit, st: Logic.HabitStats, color: Color) {
+    val a = LocalAria.current
+    val target = maxOf(1, h.target_count)
+    if (target <= 1) {
+        AriaCheckbox(st.doneToday, color) { vm.toggleHabit(h) }
+    } else {
+        Row(
+            Modifier.clip(RoundedCornerShape(999.dp)).background(color.copy(alpha = 0.12f)),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            HabitStepBtn(Icons.Filled.Remove, color, enabled = st.todayCount > 0) { vm.adjustHabit(h, -1) }
+            Text(
+                "${st.todayCount}/$target",
+                color = if (st.doneToday) color else a.text, fontWeight = FontWeight.Bold, fontSize = 14.sp,
+                textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 40.dp),
+            )
+            HabitStepBtn(Icons.Filled.Add, color, enabled = st.todayCount < target) { vm.adjustHabit(h, +1) }
+        }
+    }
+}
+
+@Composable
+private fun HabitStepBtn(icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, enabled: Boolean, onClick: () -> Unit) {
+    val a = LocalAria.current
+    Box(
+        Modifier.size(34.dp).clip(CircleShape).clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { Icon(icon, null, tint = if (enabled) color else a.textMuted, modifier = Modifier.size(18.dp)) }
 }
 
 // ── Water ──────────────────────────────────────────────────────────────────
