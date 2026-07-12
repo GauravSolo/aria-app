@@ -76,46 +76,44 @@ final class AppStore: ObservableObject {
 
     var waterToday: Int { waterTotal(waterLogs, on: today) }
 
-    // ── Mutations ──────────────────────────────────────────────────────────────
+    // ── Mutations (optimistic: update local state now, persist in background) ────
     func toggleTask(_ t: Task) {
-        _Concurrency.Task {
-            do {
-                if t.recurrence == .none {
-                    let done = !t.isCompleted
-                    let payload: [String: AnyJSON] = [
-                        "is_completed": .bool(done),
-                        "completed_at": done ? .string(ISO.now()) : .null,
-                        "updated_at": .string(ISO.now()),
-                    ]
-                    try await Supa.client.from("tasks").update(payload).eq("id", value: t.id).execute()
-                    if let i = tasks.firstIndex(where: { $0.id == t.id }) {
-                        tasks[i].isCompleted = done
-                        tasks[i].completedAt = done ? ISO.now() : nil
-                    }
-                } else {
-                    try await toggleCompletion(t)
-                }
-                publishWidget()
-            } catch { lastError = error.localizedDescription }
+        let now = ISO.now()
+        if t.recurrence == .none {
+            let done = !t.isCompleted
+            guard let i = tasks.firstIndex(where: { $0.id == t.id }) else { return }
+            tasks[i].isCompleted = done
+            tasks[i].completedAt = done ? now : nil
+            publishWidget()
+            let id = t.id
+            let payload: [String: AnyJSON] = [
+                "is_completed": .bool(done),
+                "completed_at": done ? .string(now) : .null,
+                "updated_at": .string(now),
+            ]
+            push { try await Supa.client.from("tasks").update(payload).eq("id", value: id).execute() }
+        } else {
+            toggleCompletion(t)
+            publishWidget()
         }
     }
 
-    private func toggleCompletion(_ t: Task) async throws {
-        if let existing = completions.first(where: { $0.taskId == t.id && $0.occurrenceDate == today }) {
-            let nowDeleted = existing.deletedAt == nil
+    private func toggleCompletion(_ t: Task) {
+        let now = ISO.now()
+        if let i = completions.firstIndex(where: { $0.taskId == t.id && $0.occurrenceDate == today }) {
+            let nowDeleted = completions[i].deletedAt == nil
+            completions[i].deletedAt = nowDeleted ? now : nil
+            let cid = completions[i].id
             let payload: [String: AnyJSON] = [
-                "deleted_at": nowDeleted ? .string(ISO.now()) : .null,
-                "updated_at": .string(ISO.now()),
+                "deleted_at": nowDeleted ? .string(now) : .null,
+                "updated_at": .string(now),
             ]
-            try await Supa.client.from("task_completions").update(payload).eq("id", value: existing.id).execute()
-            if let i = completions.firstIndex(where: { $0.id == existing.id }) {
-                completions[i].deletedAt = nowDeleted ? ISO.now() : nil
-            }
+            push { try await Supa.client.from("task_completions").update(payload).eq("id", value: cid).execute() }
         } else {
             let row = TaskCompletion(id: newUUID(), userId: uid, taskId: t.id, occurrenceDate: today,
-                                     completedAt: ISO.now(), createdAt: ISO.now(), updatedAt: ISO.now(), deletedAt: nil)
-            try await Supa.client.from("task_completions").insert(row).execute()
+                                     completedAt: now, createdAt: now, updatedAt: now, deletedAt: nil)
             completions.append(row)
+            push { try await Supa.client.from("task_completions").insert(row).execute() }
         }
     }
 
@@ -140,32 +138,32 @@ final class AppStore: ObservableObject {
     }
 
     func setHabitCount(_ h: Habit, count: Int) {
+        let now = ISO.now()
+        if let i = habitLogs.firstIndex(where: { $0.habitId == h.id && $0.logDate == today }) {
+            let logId = habitLogs[i].id
+            if count <= 0 {
+                habitLogs[i].deletedAt = now
+                let payload: [String: AnyJSON] = ["deleted_at": .string(now), "updated_at": .string(now)]
+                push { try await Supa.client.from("habit_logs").update(payload).eq("id", value: logId).execute() }
+            } else {
+                habitLogs[i].count = count; habitLogs[i].deletedAt = nil
+                let payload: [String: AnyJSON] = ["count": .integer(count), "deleted_at": .null, "updated_at": .string(now)]
+                push { try await Supa.client.from("habit_logs").update(payload).eq("id", value: logId).execute() }
+            }
+        } else if count > 0 {
+            let row = HabitLog(id: newUUID(), userId: uid, habitId: h.id, logDate: today,
+                               count: count, createdAt: now, updatedAt: now, deletedAt: nil)
+            habitLogs.append(row)
+            push { try await Supa.client.from("habit_logs").insert(row).execute() }
+        }
+        publishWidget()
+    }
+
+    /// Runs a Supabase write in the background; surfaces failures in `lastError`.
+    private func push(_ work: @escaping () async throws -> Void) {
         _Concurrency.Task {
-            do {
-                if let existing = habitLogs.first(where: { $0.habitId == h.id && $0.logDate == today }) {
-                    if count <= 0 {
-                        let payload: [String: AnyJSON] = [
-                            "deleted_at": .string(ISO.now()), "updated_at": .string(ISO.now()),
-                        ]
-                        try await Supa.client.from("habit_logs").update(payload).eq("id", value: existing.id).execute()
-                        if let i = habitLogs.firstIndex(where: { $0.id == existing.id }) { habitLogs[i].deletedAt = ISO.now() }
-                    } else {
-                        let payload: [String: AnyJSON] = [
-                            "count": .integer(count), "deleted_at": .null, "updated_at": .string(ISO.now()),
-                        ]
-                        try await Supa.client.from("habit_logs").update(payload).eq("id", value: existing.id).execute()
-                        if let i = habitLogs.firstIndex(where: { $0.id == existing.id }) {
-                            habitLogs[i].count = count; habitLogs[i].deletedAt = nil
-                        }
-                    }
-                } else if count > 0 {
-                    let row = HabitLog(id: newUUID(), userId: uid, habitId: h.id, logDate: today,
-                                       count: count, createdAt: ISO.now(), updatedAt: ISO.now(), deletedAt: nil)
-                    try await Supa.client.from("habit_logs").insert(row).execute()
-                    habitLogs.append(row)
-                }
-                publishWidget()
-            } catch { lastError = error.localizedDescription }
+            do { try await work() }
+            catch { lastError = error.localizedDescription }
         }
     }
 
