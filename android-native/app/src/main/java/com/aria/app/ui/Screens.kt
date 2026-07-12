@@ -396,7 +396,7 @@ private fun PlannerScreen(vm: AppViewModel, nav: Nav) {
                     if (mode == "list") {
                         dayTasks.sortedBy { vm.isTaskDone(it, selected) }.forEach { TaskCard(vm, it, selected) { nav.push(Route.TaskForm(it.id, selected)) } }
                     } else {
-                        val timed = dayTasks.filter { it.start_time != null }.sortedBy { it.start_time }
+                        val timed = dayTasks.filter { it.start_time != null }.sortedBy { Logic.minuteOfDay(it.start_time) }
                         val untimed = dayTasks.filter { it.start_time == null }
                         timed.forEach { t ->
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

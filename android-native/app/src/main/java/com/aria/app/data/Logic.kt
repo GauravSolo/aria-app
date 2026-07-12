@@ -50,6 +50,12 @@ object Logic {
         return if (e != null) "$s – $e" else s
     }
 
+    /** Minutes since midnight for a stored start_time ISO — for timeline sorting
+     *  by time of day (the ISO also carries a date, which must be ignored). */
+    fun minuteOfDay(iso: String?): Int = iso?.let {
+        runCatching { val t = java.time.OffsetDateTime.parse(it).toLocalTime(); t.hour * 60 + t.minute }.getOrNull()
+    } ?: Int.MAX_VALUE
+
     /** 0 = Sunday … 6 = Saturday */
     private fun weekday(d: LocalDate): Int = d.dayOfWeek.value % 7
 

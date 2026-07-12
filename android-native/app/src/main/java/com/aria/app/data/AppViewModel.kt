@@ -157,7 +157,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun tasksOn(date: String): List<Task> =
         tasks.value.filter { it.deleted_at == null && Logic.taskOccursOn(it, date) }
-            .sortedBy { it.start_time ?: "" }
+            .sortedBy { Logic.minuteOfDay(it.start_time) }
 
     fun tasksToday(): List<Task> = tasksOn(today)
 
