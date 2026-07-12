@@ -223,36 +223,39 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun saveTask(existing: Task?, input: TaskInput) = mutate {
+    fun saveTask(existing: Task?, input: TaskInput) {
+        val now = Repository.now()
         if (existing != null) {
-            Repository.upsertTask(
-                existing.copy(
-                    title = input.title.trim(), description = input.description?.trim()?.ifBlank { null },
-                    category = input.category, priority = input.priority,
-                    start_time = input.startTime, end_time = input.endTime, due_date = input.dueDate,
-                    recurrence = input.recurrence, recurrence_interval = input.recurrenceInterval,
-                    recurrence_days = input.recurrenceDays, recurrence_end_date = input.recurrenceEndDate,
-                    updated_at = Repository.now(),
-                )
+            val row = existing.copy(
+                title = input.title.trim(), description = input.description?.trim()?.ifBlank { null },
+                category = input.category, priority = input.priority,
+                start_time = input.startTime, end_time = input.endTime, due_date = input.dueDate,
+                recurrence = input.recurrence, recurrence_interval = input.recurrenceInterval,
+                recurrence_days = input.recurrenceDays, recurrence_end_date = input.recurrenceEndDate,
+                updated_at = now,
             )
+            tasks.value = tasks.value.map { if (it.id == row.id) row else it }
+            sync { Repository.upsertTask(row) }
         } else {
-            Repository.insertTask(
-                Task(
-                    id = Repository.uuid(), user_id = uid!!, title = input.title.trim(),
-                    description = input.description?.trim()?.ifBlank { null },
-                    category = input.category, priority = input.priority,
-                    start_time = input.startTime, end_time = input.endTime, due_date = input.dueDate,
-                    recurrence = input.recurrence, recurrence_interval = input.recurrenceInterval,
-                    recurrence_days = input.recurrenceDays, recurrence_end_date = input.recurrenceEndDate,
-                    created_at = Repository.now(), updated_at = Repository.now(),
-                )
+            val row = Task(
+                id = Repository.uuid(), user_id = uid!!, title = input.title.trim(),
+                description = input.description?.trim()?.ifBlank { null },
+                category = input.category, priority = input.priority,
+                start_time = input.startTime, end_time = input.endTime, due_date = input.dueDate,
+                recurrence = input.recurrence, recurrence_interval = input.recurrenceInterval,
+                recurrence_days = input.recurrenceDays, recurrence_end_date = input.recurrenceEndDate,
+                created_at = now, updated_at = now,
             )
+            tasks.value = tasks.value + row
+            sync { Repository.insertTask(row) }
         }
     }
 
-    fun deleteTask(id: String) = mutate {
-        val t = taskById(id) ?: return@mutate
-        Repository.upsertTask(t.copy(deleted_at = Repository.now(), updated_at = Repository.now()))
+    fun deleteTask(id: String) {
+        val t = taskById(id) ?: return
+        val row = t.copy(deleted_at = Repository.now(), updated_at = Repository.now())
+        tasks.value = tasks.value.map { if (it.id == row.id) row else it }
+        sync { Repository.upsertTask(row) }
     }
 
     // ── Habit mutations ──────────────────────────────────────────────────────
@@ -282,33 +285,36 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         sync { Repository.upsertHabitLog(row) }
     }
 
-    fun saveHabit(existing: Habit?, input: HabitInput) = mutate {
+    fun saveHabit(existing: Habit?, input: HabitInput) {
+        val now = Repository.now()
         val days = if (input.frequency == "daily") emptyList() else input.customDays
         if (existing != null) {
-            Repository.upsertHabit(
-                existing.copy(
-                    name = input.name.trim(), kind = input.kind, category = input.category,
-                    frequency = input.frequency, target_count = maxOf(1, input.targetCount),
-                    custom_days = days, reminder_time = input.reminderTime, start_date = input.startDate,
-                    notes = input.notes?.trim()?.ifBlank { null }, color = input.color, updated_at = Repository.now(),
-                )
+            val row = existing.copy(
+                name = input.name.trim(), kind = input.kind, category = input.category,
+                frequency = input.frequency, target_count = maxOf(1, input.targetCount),
+                custom_days = days, reminder_time = input.reminderTime, start_date = input.startDate,
+                notes = input.notes?.trim()?.ifBlank { null }, color = input.color, updated_at = now,
             )
+            habits.value = habits.value.map { if (it.id == row.id) row else it }
+            sync { Repository.upsertHabit(row) }
         } else {
-            Repository.insertHabit(
-                Habit(
-                    id = Repository.uuid(), user_id = uid!!, name = input.name.trim(), kind = input.kind,
-                    category = input.category, frequency = input.frequency, target_count = maxOf(1, input.targetCount),
-                    custom_days = days, reminder_time = input.reminderTime, start_date = input.startDate,
-                    notes = input.notes?.trim()?.ifBlank { null }, color = input.color,
-                    sort_order = activeHabits().size, created_at = Repository.now(), updated_at = Repository.now(),
-                )
+            val row = Habit(
+                id = Repository.uuid(), user_id = uid!!, name = input.name.trim(), kind = input.kind,
+                category = input.category, frequency = input.frequency, target_count = maxOf(1, input.targetCount),
+                custom_days = days, reminder_time = input.reminderTime, start_date = input.startDate,
+                notes = input.notes?.trim()?.ifBlank { null }, color = input.color,
+                sort_order = activeHabits().size, created_at = now, updated_at = now,
             )
+            habits.value = habits.value + row
+            sync { Repository.insertHabit(row) }
         }
     }
 
-    fun deleteHabit(id: String) = mutate {
-        val h = habitById(id) ?: return@mutate
-        Repository.upsertHabit(h.copy(deleted_at = Repository.now(), updated_at = Repository.now()))
+    fun deleteHabit(id: String) {
+        val h = habitById(id) ?: return
+        val row = h.copy(deleted_at = Repository.now(), updated_at = Repository.now())
+        habits.value = habits.value.map { if (it.id == row.id) row else it }
+        sync { Repository.upsertHabit(row) }
     }
 
     // ── Water mutations ──────────────────────────────────────────────────────
@@ -333,61 +339,73 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ── Reminder mutations ──────────────────────────────────────────────────
-    fun saveReminder(existing: Reminder?, input: ReminderInput) = mutate {
+    fun saveReminder(existing: Reminder?, input: ReminderInput) {
+        val now = Repository.now()
         if (existing != null) {
-            Repository.upsertReminder(
-                existing.copy(
-                    title = input.title.trim(), body = input.body?.trim()?.ifBlank { null },
-                    repeat = input.repeat, repeat_days = input.repeatDays, interval_min = input.intervalMin,
-                    time_of_day = input.timeOfDay, next_trigger_at = input.nextTriggerAt,
-                    snooze_until = null, updated_at = Repository.now(),
-                )
+            val row = existing.copy(
+                title = input.title.trim(), body = input.body?.trim()?.ifBlank { null },
+                repeat = input.repeat, repeat_days = input.repeatDays, interval_min = input.intervalMin,
+                time_of_day = input.timeOfDay, next_trigger_at = input.nextTriggerAt,
+                snooze_until = null, updated_at = now,
             )
+            reminders.value = reminders.value.map { if (it.id == row.id) row else it }
+            sync { Repository.upsertReminder(row) }
         } else {
-            Repository.insertReminder(
-                Reminder(
-                    id = Repository.uuid(), user_id = uid!!, title = input.title.trim(),
-                    body = input.body?.trim()?.ifBlank { null }, kind = "custom", repeat = input.repeat,
-                    repeat_days = input.repeatDays, interval_min = input.intervalMin, time_of_day = input.timeOfDay,
-                    next_trigger_at = input.nextTriggerAt, is_enabled = true, created_at = Repository.now(), updated_at = Repository.now(),
-                )
+            val row = Reminder(
+                id = Repository.uuid(), user_id = uid!!, title = input.title.trim(),
+                body = input.body?.trim()?.ifBlank { null }, kind = "custom", repeat = input.repeat,
+                repeat_days = input.repeatDays, interval_min = input.intervalMin, time_of_day = input.timeOfDay,
+                next_trigger_at = input.nextTriggerAt, is_enabled = true, created_at = now, updated_at = now,
             )
+            reminders.value = reminders.value + row
+            sync { Repository.insertReminder(row) }
         }
     }
 
-    fun deleteReminder(id: String) = mutate {
-        val r = reminderById(id) ?: return@mutate
-        Repository.upsertReminder(r.copy(deleted_at = Repository.now(), updated_at = Repository.now()))
+    fun deleteReminder(id: String) {
+        val r = reminderById(id) ?: return
+        val row = r.copy(deleted_at = Repository.now(), updated_at = Repository.now())
+        reminders.value = reminders.value.map { if (it.id == row.id) row else it }
+        sync { Repository.upsertReminder(row) }
     }
 
-    fun toggleReminder(id: String) = mutate {
-        val r = reminderById(id) ?: return@mutate
-        Repository.upsertReminder(r.copy(is_enabled = !r.is_enabled, updated_at = Repository.now()))
+    fun toggleReminder(id: String) {
+        val r = reminderById(id) ?: return
+        val row = r.copy(is_enabled = !r.is_enabled, updated_at = Repository.now())
+        reminders.value = reminders.value.map { if (it.id == row.id) row else it }
+        sync { Repository.upsertReminder(row) }
     }
 
-    fun snoozeReminder(id: String, minutes: Int = 10) = mutate {
-        val r = reminderById(id) ?: return@mutate
+    fun snoozeReminder(id: String, minutes: Int = 10) {
+        val r = reminderById(id) ?: return
         val until = java.time.Instant.now().plusSeconds(minutes * 60L).toString()
-        Repository.upsertReminder(r.copy(snooze_until = until, is_enabled = true, updated_at = Repository.now()))
-        recordHistory(r.id, r.title, r.kind, "snoozed")
+        val row = r.copy(snooze_until = until, is_enabled = true, updated_at = Repository.now())
+        reminders.value = reminders.value.map { if (it.id == row.id) row else it }
+        sync {
+            Repository.upsertReminder(row)
+            recordHistory(r.id, r.title, r.kind, "snoozed")
+        }
     }
 
-    fun markReminderDone(id: String) = mutate {
-        val r = reminderById(id) ?: return@mutate
-        recordHistory(r.id, r.title, r.kind, "done")
-        if (r.repeat == "once") Repository.upsertReminder(r.copy(is_enabled = false, updated_at = Repository.now()))
+    fun markReminderDone(id: String) {
+        val r = reminderById(id) ?: return
+        val row = if (r.repeat == "once") r.copy(is_enabled = false, updated_at = Repository.now()) else r
+        if (r.repeat == "once") reminders.value = reminders.value.map { if (it.id == row.id) row else it }
+        sync {
+            recordHistory(r.id, r.title, r.kind, "done")
+            if (r.repeat == "once") Repository.upsertReminder(row)
+        }
     }
 
     private suspend fun recordHistory(reminderId: String?, title: String, kind: String, statusStr: String) {
-        runCatching {
-            Repository.insertHistory(
-                NotificationHistory(
-                    id = Repository.uuid(), user_id = uid!!, reminder_id = reminderId, title = title,
-                    kind = kind, fired_at = Repository.now(), status = statusStr,
-                    created_at = Repository.now(), updated_at = Repository.now(),
-                )
-            )
-        }
+        val row = NotificationHistory(
+            id = Repository.uuid(), user_id = uid!!, reminder_id = reminderId, title = title,
+            kind = kind, fired_at = Repository.now(), status = statusStr,
+            created_at = Repository.now(), updated_at = Repository.now(),
+        )
+        history.value = listOf(row) + history.value
+        bump()
+        runCatching { Repository.insertHistory(row) }
     }
 
     private fun bump() { dataRev.value = dataRev.value + 1 }
@@ -401,11 +419,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             publishWidget()
             runCatching { ReminderScheduler.reschedule(ctx, activeReminders()) }
         }
-    }
-
-    private fun mutate(block: suspend () -> Unit) = viewModelScope.launch {
-        runCatching { block() }.onFailure { error.value = it.message }
-        refresh()
     }
 
     private suspend fun publishWidget() {

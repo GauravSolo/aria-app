@@ -316,7 +316,7 @@ object Logic {
 
     /** e.g. "Jul 12 · 3:30 PM" from an ISO timestamp. */
     fun fmtDateTime(iso: String): String = runCatching {
-        val inst = java.time.OffsetDateTime.parse(iso).toLocalDateTime()
+        val inst = java.time.OffsetDateTime.parse(iso).atZoneSameInstant(java.time.ZoneId.systemDefault()).toLocalDateTime()
         val months = listOf("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec")
         val h = inst.hour
         val ampm = if (h < 12) "AM" else "PM"

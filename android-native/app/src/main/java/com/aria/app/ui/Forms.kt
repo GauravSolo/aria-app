@@ -162,7 +162,7 @@ private fun FormLabelBlock(label: String, content: @Composable () -> Unit) {
 private fun toColor(hex: String?): Color? = hex?.let { runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() }
 private fun combineIso(dateKey: String, t: LocalTime): String =
     LocalDate.parse(dateKey).atTime(t.hour, t.minute).atZone(ZoneId.systemDefault()).toOffsetDateTime().toString()
-private fun parseTime(iso: String?): LocalTime? = iso?.let { runCatching { OffsetDateTime.parse(it).toLocalTime() }.getOrNull() }
+private fun parseTime(iso: String?): LocalTime? = iso?.let { runCatching { OffsetDateTime.parse(it).atZoneSameInstant(ZoneId.systemDefault()).toLocalTime() }.getOrNull() }
 private fun parseHm(hm: String?): LocalTime? = hm?.let { val p = it.split(":"); runCatching { LocalTime.of(p[0].toInt(), p.getOrElse(1){"0"}.toInt()) }.getOrNull() }
 
 // ── Task form ──────────────────────────────────────────────────────────────
@@ -497,7 +497,7 @@ private fun ReminderFormScreen(vm: AppViewModel, nav: Nav, id: String?) {
     var title by remember { mutableStateOf(existing?.title ?: "") }
     var body by remember { mutableStateOf(existing?.body ?: "") }
     var repeat by remember { mutableStateOf(existing?.repeat ?: "once") }
-    var date by remember { mutableStateOf(existing?.next_trigger_at?.let { runCatching { OffsetDateTime.parse(it).toLocalDate() }.getOrNull() } ?: LocalDate.now()) }
+    var date by remember { mutableStateOf(existing?.next_trigger_at?.let { runCatching { OffsetDateTime.parse(it).atZoneSameInstant(ZoneId.systemDefault()).toLocalDate() }.getOrNull() } ?: LocalDate.now()) }
     var time by remember { mutableStateOf(parseHm(existing?.time_of_day) ?: parseTime(existing?.next_trigger_at) ?: LocalTime.now().plusHours(1).withMinute(0)) }
     var days by remember { mutableStateOf(existing?.repeat_days ?: emptyList()) }
     var interval by remember { mutableStateOf(existing?.interval_min ?: 60) }
