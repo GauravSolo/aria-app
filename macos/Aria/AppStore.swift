@@ -239,5 +239,24 @@ final class AppStore: ObservableObject {
             topStreak: activeHabits.map { stats($0).current }.max() ?? 0
         )
         WidgetBridge.write(snap)
+        publishCalendars()
+    }
+
+    /// Per-habit and per-recurring-task month calendars for the calendar widgets.
+    private func publishCalendars() {
+        let habitEntries: [CalendarEntry] = activeHabits.map { h in
+            let s = stats(h)
+            return CalendarEntry(id: h.id, name: h.name, colorHex: h.color, current: s.current,
+                                 longest: s.longest, weeks: habitMonthCells(h, counts: habitCounts(h.id)))
+        }
+        let taskEntries: [CalendarEntry] = tasks
+            .filter { $0.deletedAt == nil && $0.recurrence != .none }
+            .map { t in
+                let done = Set(completions.filter { $0.deletedAt == nil && $0.taskId == t.id }.map { $0.occurrenceDate })
+                let st = taskStreaks(t, done: done)
+                return CalendarEntry(id: t.id, name: t.title, colorHex: nil, current: st.current,
+                                     longest: st.longest, weeks: taskMonthCells(t, done: done))
+            }
+        WidgetBridge.writeCalendar(CalendarData(habits: habitEntries, tasks: taskEntries))
     }
 }

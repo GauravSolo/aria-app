@@ -5,5 +5,7 @@ import WidgetKit
 struct AriaWidgetBundle: WidgetBundle {
     var body: some Widget {
         AriaWidget()
+        HabitCalWidget()
+        TaskCalWidget()
     }
 }

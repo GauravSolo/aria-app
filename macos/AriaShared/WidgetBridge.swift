@@ -11,6 +11,24 @@ import WidgetKit
 let ariaWidgetBundleID = "com.aria.planner.AriaWidget"
 private let snapshotFileName = "widget-snapshot.json"
 private let pendingFileName = "widget-pending.json"
+private let calendarFileName = "widget-calendar.json"
+
+/// A habit or recurring task rendered as a month calendar for the calendar widgets.
+/// `weeks` cells: -1 blank · 0 off · 1 done · 2 missed · 3 today-pending · 4 future.
+struct CalendarEntry: Codable, Identifiable {
+    var id: String
+    var name: String
+    var colorHex: String?
+    var current: Int
+    var longest: Int
+    var weeks: [[Int]]
+}
+
+struct CalendarData: Codable {
+    var habits: [CalendarEntry]
+    var tasks: [CalendarEntry]
+    static let empty = CalendarData(habits: [], tasks: [])
+}
 
 struct WidgetTask: Codable, Identifiable {
     var id: String
@@ -98,6 +116,22 @@ enum WidgetBridge {
         guard let url = ownDir()?.appendingPathComponent(snapshotFileName),
               let data = try? JSONEncoder().encode(snap) else { return }
         try? data.write(to: url, options: .atomic)
+    }
+
+    // ── Calendar data (habit streak + task calendar widgets) ─────────────────
+    static func writeCalendar(_ data: CalendarData) {
+        guard let url = widgetContainerDir()?.appendingPathComponent(calendarFileName),
+              let bytes = try? JSONEncoder().encode(data) else { return }
+        try? bytes.write(to: url, options: .atomic)
+        reload()
+    }
+
+    static func readCalendar() -> CalendarData {
+        guard let url = ownDir()?.appendingPathComponent(calendarFileName),
+              let data = try? Data(contentsOf: url),
+              let cal = try? JSONDecoder().decode(CalendarData.self, from: data)
+        else { return .empty }
+        return cal
     }
 
     static func enqueuePending(_ p: PendingToggle) {

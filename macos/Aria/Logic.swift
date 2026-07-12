@@ -160,3 +160,62 @@ func productivityScore(taskRate: Double?, habitRate: Double?, waterRate: Double?
     guard !vals.isEmpty else { return 0 }
     return Int((vals.reduce(0, +) / Double(vals.count) * 100).rounded())
 }
+
+// ── Month calendar cells (habit streak + task calendar widgets) ───────────────
+// Cell codes: -1 blank · 0 off · 1 done · 2 missed · 3 today-pending · 4 future.
+private func monthWeeks(year: Int, month: Int, codeFor: (String) -> Int) -> [[Int]] {
+    var first = DateComponents(); first.year = year; first.month = month; first.day = 1
+    guard let firstDate = Cal.calendar.date(from: first) else { return [] }
+    let daysInMonth = Cal.calendar.range(of: .day, in: .month, for: firstDate)?.count ?? 30
+    let lead = Cal.calendar.component(.weekday, from: firstDate) - 1 // 0 = Sunday
+    var cells = Array(repeating: -1, count: max(0, lead))
+    for d in 1...daysInMonth {
+        var c = DateComponents(); c.year = year; c.month = month; c.day = d
+        let key = Cal.keyOf(Cal.calendar.date(from: c)!)
+        cells.append(codeFor(key))
+    }
+    while cells.count % 7 != 0 { cells.append(-1) }
+    return stride(from: 0, to: cells.count, by: 7).map { Array(cells[$0 ..< $0 + 7]) }
+}
+
+private func currentYearMonth(_ today: String) -> (Int, Int) {
+    let d = Cal.date(today)
+    return (Cal.calendar.component(.year, from: d), Cal.calendar.component(.month, from: d))
+}
+
+func habitMonthCells(_ h: Habit, counts: [String: Int], today: String = DayKey.today()) -> [[Int]] {
+    let target = max(1, h.targetCount)
+    let (year, month) = currentYearMonth(today)
+    return monthWeeks(year: year, month: month) { key in
+        if key > today { return 4 }
+        if !isScheduledOn(h, key) { return 0 }
+        let cnt = counts[key] ?? 0
+        if cnt >= target { return 1 }
+        if key == today { return 3 }
+        return 2
+    }
+}
+
+func taskMonthCells(_ t: Task, done: Set<String>, today: String = DayKey.today()) -> [[Int]] {
+    let (year, month) = currentYearMonth(today)
+    return monthWeeks(year: year, month: month) { key in
+        if !taskOccursOn(t, key) { return 0 }
+        if done.contains(key) { return 1 }
+        if key > today { return 4 }
+        if key == today { return 3 }
+        return 2
+    }
+}
+
+func taskStreaks(_ t: Task, done: Set<String>, today: String = DayKey.today()) -> (current: Int, longest: Int) {
+    var run = 0, longest = 0
+    var key = Cal.add(today, days: -365)
+    while key <= today {
+        if taskOccursOn(t, key) {
+            if done.contains(key) { run += 1; longest = max(longest, run) }
+            else if key < today { run = 0 }
+        }
+        key = Cal.add(key, days: 1)
+    }
+    return (run, longest)
+}
