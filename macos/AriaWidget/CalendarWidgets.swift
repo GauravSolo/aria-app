@@ -20,23 +20,26 @@ private func doneColor(_ hex: String?) -> Color {
 // MARK: - Shared calendar view
 
 struct CalendarGridView: View {
+    @Environment(\.widgetFamily) private var family
     let entry: CalendarEntry?
     let emptyHint: String
 
+    private var small: Bool { family == .systemSmall }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: small ? 6 : 10) {
             if let e = entry {
                 HStack {
-                    Text(e.name).font(.system(size: 14, weight: .bold)).foregroundStyle(CC.text).lineLimit(1)
+                    Text(e.name).font(.system(size: small ? 12 : 14, weight: .bold)).foregroundStyle(CC.text).lineLimit(1)
                     Spacer()
-                    Label("\(e.current)", systemImage: "flame.fill").font(.system(size: 12, weight: .bold)).foregroundStyle(CC.amber)
+                    Label("\(e.current)", systemImage: "flame.fill").font(.system(size: small ? 11 : 12, weight: .bold)).foregroundStyle(CC.amber)
                 }
                 let done = doneColor(e.colorHex)
-                HStack(alignment: .top, spacing: 4) {
+                HStack(alignment: .top, spacing: small ? 2 : 4) {
                     ForEach(Array(e.weeks.enumerated()), id: \.offset) { _, week in
-                        VStack(spacing: 4) {
+                        VStack(spacing: small ? 2 : 4) {
                             ForEach(Array(week.enumerated()), id: \.offset) { _, code in
-                                RoundedRectangle(cornerRadius: 4)
+                                RoundedRectangle(cornerRadius: small ? 2 : 4)
                                     .fill(cellColor(code, done: done))
                                     .aspectRatio(1, contentMode: .fit)
                             }
@@ -49,7 +52,7 @@ struct CalendarGridView: View {
                 Spacer()
             }
         }
-        .padding(14)
+        .padding(small ? 10 : 14)
         .containerBackground(CC.bg, for: .widget)
     }
 
@@ -113,7 +116,7 @@ struct HabitCalWidget: Widget {
         }
         .configurationDisplayName("Aria — Habit streak")
         .description("A habit's streak calendar.")
-        .supportedFamilies([.systemMedium, .systemLarge])
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
 
@@ -167,6 +170,6 @@ struct TaskCalWidget: Widget {
         }
         .configurationDisplayName("Aria — Task calendar")
         .description("A repeating task's completion calendar.")
-        .supportedFamilies([.systemMedium, .systemLarge])
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
