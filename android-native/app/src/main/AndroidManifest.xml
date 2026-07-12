@@ -57,6 +57,27 @@
         </activity>
 
         <receiver
+            android:name=".widget.TaskCalWidgetReceiver"
+            android:exported="false"
+            android:label="@string/taskcal_widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/aria_taskcal_widget_info" />
+        </receiver>
+
+        <activity
+            android:name=".widget.TaskCalConfigActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Aria">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
+        <receiver
             android:name=".notif.ReminderReceiver"
             android:exported="false">
             <intent-filter>

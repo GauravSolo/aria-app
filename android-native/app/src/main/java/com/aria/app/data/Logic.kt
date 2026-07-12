@@ -284,6 +284,27 @@ object Logic {
         return cells.chunked(7)
     }
 
+    /** current/longest streak of completed occurrences for a recurring task.
+     *  Today counts as not-yet-broken while still pending. */
+    fun taskStreaks(t: Task, done: Set<String>, today: String = today()): Pair<Int, Int> {
+        val end = LocalDate.parse(today)
+        var d = end.minusDays(365)
+        var run = 0
+        var longest = 0
+        while (!d.isAfter(end)) {
+            val key = d.toString()
+            if (taskOccursOn(t, key)) {
+                when {
+                    key in done -> { run++; if (run > longest) longest = run }
+                    key < today -> run = 0
+                    // pending today: leave the current run intact
+                }
+            }
+            d = d.plusDays(1)
+        }
+        return run to longest
+    }
+
     /** Month grid for a (recurring) task: OFF when it doesn't occur that day,
      *  otherwise completed / missed / pending / future based on [doneDates]. */
     fun taskMonthGrid(t: Task, doneDates: Set<String>, year: Int, month: Int, today: String = today()): List<List<DayCell?>> {

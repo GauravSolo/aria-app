@@ -520,5 +520,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     ?.let { StreakStore.build(it, habitCounts(it.id), today) }
             }
         }
+        runCatching {
+            TaskCalStore.push(ctx) { tid ->
+                tasks.value.firstOrNull { it.id == tid && it.deleted_at == null }
+                    ?.let { TaskCalStore.build(it, taskDoneDates(tid), today) }
+            }
+        }
     }
 }
