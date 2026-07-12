@@ -22,6 +22,8 @@ import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
+import androidx.glance.appwidget.lazy.LazyColumn
+import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.layout.Alignment
@@ -43,11 +45,12 @@ import com.aria.app.data.WidgetSync
 
 /** Passed to ToggleTaskAction so it knows which task to complete. */
 val taskIdKey = ActionParameters.Key<String>("task_id")
+val recurrenceKey = ActionParameters.Key<String>("recurrence")
 
 /** Widget checkbox tap → mark the task done + refresh the widget. */
 class ToggleTaskAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
-        parameters[taskIdKey]?.let { WidgetSync.completeTask(context, it) }
+        parameters[taskIdKey]?.let { WidgetSync.completeTask(context, it, parameters[recurrenceKey] ?: "none") }
     }
 }
 
@@ -100,11 +103,13 @@ private fun WidgetContent(snap: WidgetSnapshot) {
                 style = TextStyle(color = ColorProvider(Muted), fontSize = 13.sp, fontWeight = FontWeight.Medium),
             )
         } else {
-            Column(modifier = GlanceModifier.fillMaxWidth()) {
-                snap.tasks.forEach { task ->
+            LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
+                items(snap.tasks, itemId = { it.id.hashCode().toLong() }) { task ->
                     CheckBox(
                         checked = false,
-                        onCheckedChange = actionRunCallback<ToggleTaskAction>(actionParametersOf(taskIdKey to task.id)),
+                        onCheckedChange = actionRunCallback<ToggleTaskAction>(
+                            actionParametersOf(taskIdKey to task.id, recurrenceKey to task.recurrence),
+                        ),
                         text = task.title,
                         maxLines = 1,
                         style = TextStyle(color = ColorProvider(Text0), fontSize = 13.sp, fontWeight = FontWeight.Medium),
@@ -112,13 +117,7 @@ private fun WidgetContent(snap: WidgetSnapshot) {
                             checkedColor = ColorProvider(Green),
                             uncheckedColor = ColorProvider(Muted),
                         ),
-                        modifier = GlanceModifier.fillMaxWidth().padding(vertical = 2.dp),
-                    )
-                }
-                if (snap.pendingTasks > snap.tasks.size) {
-                    Text(
-                        "+${snap.pendingTasks - snap.tasks.size} more",
-                        style = TextStyle(color = ColorProvider(Muted), fontSize = 11.sp),
+                        modifier = GlanceModifier.fillMaxWidth().padding(vertical = 4.dp),
                     )
                 }
             }

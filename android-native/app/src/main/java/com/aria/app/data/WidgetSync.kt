@@ -12,10 +12,10 @@ object WidgetSync {
     private suspend fun uid(ctx: Context): String? =
         runCatching { PrefsSessionManager(ctx.applicationContext).loadSession().user?.id }.getOrNull()
 
-    /** Mark a pending task done (from the widget checkbox), then refresh the widget. */
-    suspend fun completeTask(ctx: Context, taskId: String) {
-        // Optimistically drop the tapped task so it disappears instantly (the Glance
-        // checkbox otherwise snaps back to unchecked before the network round-trip).
+    /** Mark a pending task done from the widget checkbox. Updates the widget
+     *  instantly (optimistic), then persists in the background — no re-fetch or
+     *  rebuild, so it stays snappy like the Google Tasks widget. */
+    suspend fun completeTask(ctx: Context, taskId: String, recurrence: String) {
         val cur = WidgetStore.read(ctx)
         if (cur.tasks.any { it.id == taskId }) {
             WidgetStore.push(ctx, cur.copy(
@@ -29,21 +29,15 @@ object WidgetSync {
         runCatching { Supa.client.auth.awaitInitialization() }
         val uid = uid(ctx) ?: return
         val now = Repository.now()
-        val task = Repository.tasks(uid).firstOrNull { it.id == taskId } ?: return
-        if (task.recurrence == "none") {
-            Repository.upsertTask(task.copy(is_completed = true, completed_at = now, updated_at = now))
-        } else {
-            val today = Logic.today()
-            val existing = Repository.completions(uid).firstOrNull { it.task_id == taskId && it.occurrence_date == today }
-            if (existing != null) {
-                Repository.upsertCompletion(existing.copy(deleted_at = null, completed_at = now, updated_at = now))
+        runCatching {
+            if (recurrence == "none") {
+                Repository.markTaskComplete(taskId, now)
             } else {
                 Repository.upsertCompletion(
-                    TaskCompletion(id = Repository.uuid(), user_id = uid, task_id = taskId, occurrence_date = today, completed_at = now, created_at = now, updated_at = now),
+                    TaskCompletion(id = Repository.uuid(), user_id = uid, task_id = taskId, occurrence_date = Logic.today(), completed_at = now, created_at = now, updated_at = now),
                 )
             }
         }
-        rebuild(ctx)
     }
 
     /** Recompute the widget snapshot from fresh Supabase data + repaint the widget. */
@@ -73,7 +67,7 @@ object WidgetSync {
 
         val snap = WidgetSnapshot(
             nextTaskTitle = pending.firstOrNull()?.title,
-            tasks = pending.take(6).map { WidgetTask(it.id, it.title) },
+            tasks = pending.take(50).map { WidgetTask(it.id, it.title, it.recurrence) },
             pendingTasks = pending.size,
             totalTasks = dayTasks.size,
             waterMl = Logic.waterTotal(waterLogs.filter { it.deleted_at == null }, today),

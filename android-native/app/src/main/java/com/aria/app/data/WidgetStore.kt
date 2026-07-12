@@ -12,7 +12,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 @Serializable
-data class WidgetTask(val id: String, val title: String)
+data class WidgetTask(val id: String, val title: String, val recurrence: String = "none")
 
 @Serializable
 data class WidgetSnapshot(
