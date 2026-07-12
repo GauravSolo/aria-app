@@ -81,15 +81,8 @@ private fun StreakContent(snap: StreakSnapshot?) {
         }
         Text("${snap.monthLabel} · best ${snap.longest}", style = TextStyle(color = ColorProvider(Muted), fontSize = 11.sp))
         Spacer(GlanceModifier.height(8.dp))
-        // Month grid: weekday initials down the left, one column per week (vertical).
+        // Month grid: one column per week (vertical), no weekday labels.
         Row(modifier = GlanceModifier.fillMaxWidth()) {
-            Column {
-                WEEKDAY_INITIALS.forEach { letter ->
-                    Box(GlanceModifier.width(14.dp).height(22.dp), contentAlignment = Alignment.Center) {
-                        Text(letter, style = TextStyle(color = ColorProvider(Muted), fontSize = 9.sp, fontWeight = FontWeight.Medium))
-                    }
-                }
-            }
             snap.weeks.forEach { week ->
                 Column(modifier = GlanceModifier.defaultWeight()) {
                     for (wd in 0 until 7) {
@@ -109,5 +102,3 @@ private fun StreakContent(snap: StreakSnapshot?) {
         }
     }
 }
-
-private val WEEKDAY_INITIALS = listOf("S", "M", "T", "W", "T", "F", "S")
