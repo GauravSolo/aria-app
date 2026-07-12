@@ -278,6 +278,29 @@ object Logic {
         return cells.chunked(7)
     }
 
+    /** Month grid for a (recurring) task: OFF when it doesn't occur that day,
+     *  otherwise completed / missed / pending / future based on [doneDates]. */
+    fun taskMonthGrid(t: Task, doneDates: Set<String>, year: Int, month: Int, today: String = today()): List<List<DayCell?>> {
+        val first = LocalDate.of(year, month, 1)
+        val daysInMonth = first.lengthOfMonth()
+        val lead = first.dayOfWeek.value % 7
+        val cells = ArrayList<DayCell?>()
+        repeat(lead) { cells.add(null) }
+        for (dnum in 1..daysInMonth) {
+            val key = LocalDate.of(year, month, dnum).toString()
+            val status = when {
+                !taskOccursOn(t, key) -> DayStatus.OFF
+                key in doneDates -> DayStatus.COMPLETED
+                key > today -> DayStatus.FUTURE
+                key == today -> DayStatus.PENDING
+                else -> DayStatus.MISSED
+            }
+            cells.add(DayCell(key, status, 0))
+        }
+        while (cells.size % 7 != 0) cells.add(null)
+        return cells.chunked(7)
+    }
+
     /** Contribution-style grid: list of weeks (columns), each 7 days (Sun→Sat). */
     fun buildCalendar(h: Habit, counts: Map<String, Int>, weeks: Int = 16, today: String = today()): List<List<DayCell>> {
         val target = maxOf(1, h.target_count)

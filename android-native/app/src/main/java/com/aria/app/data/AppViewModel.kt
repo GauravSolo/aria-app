@@ -151,6 +151,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (t.recurrence == "none") t.is_completed
         else completions.value.any { it.deleted_at == null && it.task_id == t.id && it.occurrence_date == date }
 
+    /** Occurrence dates a recurring task was completed on (for its calendar). */
+    fun taskDoneDates(taskId: String): Set<String> =
+        completions.value.filter { it.deleted_at == null && it.task_id == taskId }.map { it.occurrence_date }.toSet()
+
     fun tasksOn(date: String): List<Task> =
         tasks.value.filter { it.deleted_at == null && Logic.taskOccursOn(it, date) }
             .sortedBy { it.start_time ?: "" }

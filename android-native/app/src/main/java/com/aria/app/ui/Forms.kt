@@ -229,6 +229,14 @@ private fun TaskFormScreen(vm: AppViewModel, nav: Nav, id: String?, date: String
                 if (recurrence != "none") DateField("Repeat until (optional)", until ?: LocalDate.now()) { until = it }
             }
         }
+        if (existing != null && existing.recurrence != "none") {
+            val done = vm.taskDoneDates(existing.id)
+            FormLabelBlock("HISTORY") {
+                AriaCard {
+                    MonthCalendar(a.category(existing.category)) { y, m -> Logic.taskMonthGrid(existing, done, y, m, vm.today) }
+                }
+            }
+        }
         if (existing != null) GhostButton("Delete task", icon = Icons.Filled.DeleteOutline, tint = a.danger) { vm.deleteTask(existing.id); nav.pop() }
         Spacer(Modifier.height(12.dp))
     }
@@ -368,10 +376,7 @@ private fun HabitDetailScreen(vm: AppViewModel, nav: Nav, id: String) {
             }
         }
         AriaCard {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text("Completion calendar", color = a.text, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                HabitMonthCalendar(habit, counts, color, today)
-            }
+            MonthCalendar(color) { y, m -> Logic.monthGrid(habit, counts, y, m, today) }
         }
         if (!habit.notes.isNullOrBlank()) AriaCard {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -397,8 +402,11 @@ private fun ProgressRow(label: String, done: Int, total: Int, color: Color) {
 
 private val WEEKDAY_INITIALS = listOf("S", "M", "T", "W", "T", "F", "S")
 
+/** Reusable month calendar: weekday initials down the left, one column per week,
+ *  month + prev/next on top with year at the corner. [gridFor] supplies the days
+ *  for a given (year, month) so it works for both habits and recurring tasks. */
 @Composable
-private fun HabitMonthCalendar(habit: com.aria.app.data.Habit, counts: Map<String, Int>, color: Color, today: String) {
+private fun MonthCalendar(color: Color, gridFor: (Int, Int) -> List<List<Logic.DayCell?>>) {
     val a = LocalAria.current
     val now = remember { LocalDate.now() }
     var year by rememberSaveable { mutableStateOf(now.year) }
@@ -411,8 +419,9 @@ private fun HabitMonthCalendar(habit: com.aria.app.data.Habit, counts: Map<Strin
         year = d.year; month = d.monthValue
     }
     val atCurrent = year > now.year || (year == now.year && month >= now.monthValue)
-    val grid = Logic.monthGrid(habit, counts, year, month, today)
-    val years = (now.year - 10..now.year).toList().reversed()
+    val grid = gridFor(year, month)
+    val years = (2025..now.year).toList().reversed()
+    val cell = 30.dp
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         // Header: year at the left, month centered with prev/next arrows.
@@ -453,35 +462,37 @@ private fun HabitMonthCalendar(habit: com.aria.app.data.Habit, counts: Map<Strin
         }
 
         // Grid: weekday initials down the left, one column per week of the month.
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row {
+            Column {
                 WEEKDAY_INITIALS.forEach { letter ->
-                    Box(Modifier.size(width = 14.dp, height = 26.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(width = 18.dp, height = cell), contentAlignment = Alignment.Center) {
                         Text(letter, color = a.textMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
             grid.forEach { week ->
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Column {
                     for (wd in 0 until 7) {
-                        val cell = week.getOrNull(wd)
-                        if (cell == null) {
-                            Box(Modifier.size(26.dp))
+                        val day = week.getOrNull(wd)
+                        if (day == null) {
+                            Box(Modifier.size(cell))
                         } else {
-                            val bg = when (cell.status) {
+                            val bg = when (day.status) {
                                 Logic.DayStatus.COMPLETED -> color
                                 Logic.DayStatus.MISSED -> a.dangerSoft
                                 Logic.DayStatus.PENDING -> a.surface
                                 Logic.DayStatus.OFF -> a.track
                                 Logic.DayStatus.FUTURE -> a.surfaceAlt
                             }
-                            val fg = if (cell.status == Logic.DayStatus.COMPLETED) a.onPrimary else a.textMuted
-                            Box(
-                                Modifier.size(26.dp).clip(RoundedCornerShape(6.dp)).background(bg)
-                                    .then(if (cell.status == Logic.DayStatus.PENDING) Modifier.border(1.5.dp, color, RoundedCornerShape(6.dp)) else Modifier),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text("${cell.date.substring(8).trimStart('0')}", color = fg, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                            val fg = if (day.status == Logic.DayStatus.COMPLETED) a.onPrimary else a.textMuted
+                            Box(Modifier.size(cell).padding(1.dp), contentAlignment = Alignment.Center) {
+                                Box(
+                                    Modifier.fillMaxWidth().height(cell - 2.dp).clip(RoundedCornerShape(6.dp)).background(bg)
+                                        .then(if (day.status == Logic.DayStatus.PENDING) Modifier.border(1.5.dp, color, RoundedCornerShape(6.dp)) else Modifier),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text("${day.date.substring(8).trimStart('0')}", color = fg, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                                }
                             }
                         }
                     }
