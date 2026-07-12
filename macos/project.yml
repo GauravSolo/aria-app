@@ -34,10 +34,10 @@ targets:
     entitlements:
       path: Aria/Aria.entitlements
       properties:
-        com.apple.security.app-sandbox: true
+        # Un-sandboxed so the app can write the widget snapshot into the widget
+        # extension's container (App Groups don't provision on a free Apple ID).
+        com.apple.security.app-sandbox: false
         com.apple.security.network.client: true
-        com.apple.security.application-groups:
-          - group.com.aria.planner
     dependencies:
       - package: Supabase
         product: Supabase
@@ -67,5 +67,3 @@ targets:
       path: AriaWidget/AriaWidget.entitlements
       properties:
         com.apple.security.app-sandbox: true
-        com.apple.security.application-groups:
-          - group.com.aria.planner
