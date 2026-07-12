@@ -421,8 +421,6 @@ private fun MonthCalendar(color: Color, gridFor: (Int, Int) -> List<List<Logic.D
     val atCurrent = year > now.year || (year == now.year && month >= now.monthValue)
     val grid = gridFor(year, month)
     val years = (2025..now.year).toList().reversed()
-    val rowH = 36.dp
-    val gap = 5.dp
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         // Header: year at the left, month centered with prev/next arrows.
@@ -462,38 +460,36 @@ private fun MonthCalendar(color: Color, gridFor: (Int, Int) -> List<List<Logic.D
             }
         }
 
-        // Standard month grid: weekday initials on top, one row per week.
-        Column(verticalArrangement = Arrangement.spacedBy(gap)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) {
+        // Grid: weekday initials down the left, one column per week of the month.
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 WEEKDAY_INITIALS.forEach { letter ->
-                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                        Text(letter, color = a.textMuted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Box(Modifier.size(width = 14.dp, height = 26.dp), contentAlignment = Alignment.Center) {
+                        Text(letter, color = a.textMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
             grid.forEach { week ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     for (wd in 0 until 7) {
                         val day = week.getOrNull(wd)
-                        Box(Modifier.weight(1f)) {
-                            if (day != null) {
-                                val bg = when (day.status) {
-                                    Logic.DayStatus.COMPLETED -> color
-                                    Logic.DayStatus.MISSED -> a.dangerSoft
-                                    Logic.DayStatus.PENDING -> a.surface
-                                    Logic.DayStatus.OFF -> a.track
-                                    Logic.DayStatus.FUTURE -> a.surfaceAlt
-                                }
-                                val fg = if (day.status == Logic.DayStatus.COMPLETED) a.onPrimary else a.textMuted
-                                Box(
-                                    Modifier.fillMaxWidth().height(rowH).clip(RoundedCornerShape(8.dp)).background(bg)
-                                        .then(if (day.status == Logic.DayStatus.PENDING) Modifier.border(1.5.dp, color, RoundedCornerShape(8.dp)) else Modifier),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Text("${day.date.substring(8).trimStart('0')}", color = fg, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                                }
-                            } else {
-                                Box(Modifier.fillMaxWidth().height(rowH))
+                        if (day == null) {
+                            Box(Modifier.size(26.dp))
+                        } else {
+                            val bg = when (day.status) {
+                                Logic.DayStatus.COMPLETED -> color
+                                Logic.DayStatus.MISSED -> a.dangerSoft
+                                Logic.DayStatus.PENDING -> a.surface
+                                Logic.DayStatus.OFF -> a.track
+                                Logic.DayStatus.FUTURE -> a.surfaceAlt
+                            }
+                            val fg = if (day.status == Logic.DayStatus.COMPLETED) a.onPrimary else a.textMuted
+                            Box(
+                                Modifier.size(26.dp).clip(RoundedCornerShape(6.dp)).background(bg)
+                                    .then(if (day.status == Logic.DayStatus.PENDING) Modifier.border(1.5.dp, color, RoundedCornerShape(6.dp)) else Modifier),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text("${day.date.substring(8).trimStart('0')}", color = fg, fontSize = 10.sp, fontWeight = FontWeight.Medium)
                             }
                         }
                     }
