@@ -129,7 +129,9 @@ fun MainScaffold(vm: AppViewModel, nav: Nav) {
             }
         },
     ) { pad ->
-        Box(Modifier.padding(pad).fillMaxSize()) {
+        // Only the bottom inset (nav bar) here; each screen adds its own status-bar
+        // padding at the top, so applying pad's top too would double the gap.
+        Box(Modifier.padding(bottom = pad.calculateBottomPadding()).fillMaxSize()) {
             when (tab) {
                 Tab.Today -> DashboardScreen(vm, nav)
                 Tab.Planner -> PlannerScreen(vm, nav)
