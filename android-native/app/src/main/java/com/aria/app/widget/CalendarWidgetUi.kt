@@ -16,7 +16,6 @@ import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
-import androidx.glance.layout.fillMaxHeight
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
@@ -46,7 +45,7 @@ private fun parseColor(hex: String?): Color =
 fun CalendarWidgetContent(snap: StreakSnapshot?, emptyHint: String) {
     val context = LocalContext.current
     Column(
-        modifier = GlanceModifier.fillMaxSize().background(Bg).cornerRadius(20.dp).padding(12.dp)
+        modifier = GlanceModifier.fillMaxSize().background(Bg).cornerRadius(20.dp).padding(14.dp)
             .clickable(actionStartActivity(Intent(context, MainActivity::class.java))),
     ) {
         if (snap == null || snap.name.isEmpty()) {
@@ -61,13 +60,11 @@ fun CalendarWidgetContent(snap: StreakSnapshot?, emptyHint: String) {
             Spacer(GlanceModifier.defaultWeight())
             Text("🔥 ${snap.current}", style = TextStyle(color = ColorProvider(Amber), fontSize = 13.sp, fontWeight = FontWeight.Bold))
         }
-        Spacer(GlanceModifier.height(6.dp))
-        // Month grid: one column per week (vertical). The grid fills the remaining
-        // height and each week's 7 cells share it equally, so nothing crops when
-        // the widget is resized smaller.
-        Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
+        Spacer(GlanceModifier.height(10.dp))
+        // Month grid: one column per week (vertical).
+        Row(modifier = GlanceModifier.fillMaxWidth()) {
             snap.weeks.forEach { week ->
-                Column(modifier = GlanceModifier.defaultWeight().fillMaxHeight()) {
+                Column(modifier = GlanceModifier.defaultWeight()) {
                     for (wd in 0 until 7) {
                         val code = week.getOrNull(wd) ?: -1
                         val c = when (code) {
@@ -75,8 +72,9 @@ fun CalendarWidgetContent(snap: StreakSnapshot?, emptyHint: String) {
                             2 -> MissedC
                             else -> Track
                         }
-                        Box(GlanceModifier.defaultWeight().fillMaxWidth().padding(2.dp)) {
-                            if (code != -1) Box(GlanceModifier.fillMaxSize().cornerRadius(4.dp).background(c)) {}
+                        Box(GlanceModifier.height(22.dp), contentAlignment = Alignment.Center) {
+                            if (code == -1) Spacer(GlanceModifier.size(18.dp))
+                            else Box(GlanceModifier.size(18.dp).cornerRadius(5.dp).background(c)) {}
                         }
                     }
                 }
