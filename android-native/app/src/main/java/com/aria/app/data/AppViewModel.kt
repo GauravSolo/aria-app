@@ -79,14 +79,34 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private var uid: String? = null
 
+    // Declared before init(): viewModelScope uses Main.immediate, so the startup
+    // coroutine can call loadCache() synchronously during construction — this must
+    // already be initialized or decode NPEs and the cache silently fails.
+    private val cacheJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+
     init {
+        // Optimistic startup: if a session is already stored locally, show the app
+        // with cached data immediately instead of waiting for Supabase auth to
+        // initialize/refresh over the network (that wait is the 2-3s blank screen).
+        viewModelScope.launch {
+            runCatching {
+                val s = PrefsSessionManager(getApplication()).loadSession()
+                s.user?.id?.let {
+                    uid = it
+                    email.value = s.user?.email
+                    loadCache()
+                    status.value = AuthStatus.SignedIn
+                    refresh()
+                }
+            }
+        }
         viewModelScope.launch {
             Supa.client.auth.sessionStatus.collect { st ->
                 when (st) {
                     is SessionStatus.Authenticated -> {
                         uid = st.session.user?.id
                         email.value = st.session.user?.email
-                        loadCache() // show last-known data instantly, before the network load
+                        if (status.value != AuthStatus.SignedIn) loadCache()
                         status.value = AuthStatus.SignedIn
                         refresh()
                     }
@@ -94,7 +114,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         uid = null
                         status.value = AuthStatus.SignedOut
                     }
-                    else -> status.value = AuthStatus.Loading
+                    // Don't downgrade to Loading once we've optimistically signed in.
+                    else -> if (status.value != AuthStatus.SignedIn) status.value = AuthStatus.Loading
                 }
             }
         }
@@ -147,8 +168,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ── Local cache (instant startup + offline) ───────────────────────────
-    private val cacheJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
-
     private fun <T> encode(ser: kotlinx.serialization.KSerializer<T>, v: T): String = cacheJson.encodeToString(ser, v)
     private fun <T> decode(ser: kotlinx.serialization.KSerializer<T>, key: String): T? =
         prefs.getString(key, null)?.let { runCatching { cacheJson.decodeFromString(ser, it) }.getOrNull() }
