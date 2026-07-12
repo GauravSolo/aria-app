@@ -81,26 +81,27 @@ private fun StreakContent(snap: StreakSnapshot?) {
         }
         Text("${snap.monthLabel} · best ${snap.longest}", style = TextStyle(color = ColorProvider(Muted), fontSize = 11.sp))
         Spacer(GlanceModifier.height(8.dp))
-        // Month grid: one row per week, 7 cells (Sun→Sat).
-        Column {
+        // Month grid: weekday initials down the left, one column per week (vertical).
+        Row(modifier = GlanceModifier.fillMaxWidth()) {
+            Column {
+                WEEKDAY_INITIALS.forEach { letter ->
+                    Box(GlanceModifier.width(14.dp).height(22.dp), contentAlignment = Alignment.Center) {
+                        Text(letter, style = TextStyle(color = ColorProvider(Muted), fontSize = 9.sp, fontWeight = FontWeight.Medium))
+                    }
+                }
+            }
             snap.weeks.forEach { week ->
-                Row(modifier = GlanceModifier.fillMaxWidth().padding(bottom = 3.dp)) {
-                    week.forEach { code ->
+                Column(modifier = GlanceModifier.defaultWeight()) {
+                    for (wd in 0 until 7) {
+                        val code = week.getOrNull(wd) ?: -1
                         val c = when (code) {
                             1 -> done
                             2 -> MissedC
-                            3 -> Track
-                            else -> Track // off / future / blank
+                            else -> Track // off / today / future / blank
                         }
-                        Box(
-                            modifier = GlanceModifier.defaultWeight().padding(horizontal = 2.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            if (code == -1) {
-                                Spacer(GlanceModifier.size(18.dp))
-                            } else {
-                                Box(GlanceModifier.size(18.dp).cornerRadius(5.dp).background(c)) {}
-                            }
+                        Box(GlanceModifier.height(22.dp), contentAlignment = Alignment.Center) {
+                            if (code == -1) Spacer(GlanceModifier.size(18.dp))
+                            else Box(GlanceModifier.size(18.dp).cornerRadius(5.dp).background(c)) {}
                         }
                     }
                 }
@@ -108,3 +109,5 @@ private fun StreakContent(snap: StreakSnapshot?) {
         }
     }
 }
+
+private val WEEKDAY_INITIALS = listOf("S", "M", "T", "W", "T", "F", "S")

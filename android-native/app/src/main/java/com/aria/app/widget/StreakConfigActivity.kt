@@ -67,8 +67,10 @@ class StreakConfigActivity : ComponentActivity() {
                         } else {
                             habits.forEach { h ->
                                 AriaCard(onClick = { pick(h, appWidgetId) }) {
-                                    Text(h.name, color = a.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                                    Text(Logic.frequencyLabel(h), color = a.textSecondary, fontSize = 13.sp)
+                                    Column {
+                                        Text(h.name, color = a.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                                        Text(Logic.frequencyLabel(h), color = a.textSecondary, fontSize = 13.sp)
+                                    }
                                 }
                                 Spacer(Modifier.height(10.dp))
                             }
