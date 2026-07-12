@@ -270,6 +270,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         setHabitCount(h, date, maxOf(0, cur + delta))
     }
 
+    /** One tap = +1 toward the daily target; tapping again once full resets to 0. */
+    fun stepHabit(h: Habit, date: String = today) {
+        val target = maxOf(1, h.target_count)
+        val cur = habitCounts(h.id)[date] ?: 0
+        setHabitCount(h, date, if (cur >= target) 0 else cur + 1)
+    }
+
     private fun setHabitCount(h: Habit, date: String, count: Int) {
         val now = Repository.now()
         val existing = habitLogs.value.firstOrNull { it.habit_id == h.id && it.log_date == date }

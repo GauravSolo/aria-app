@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,7 +33,6 @@ import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.WaterDrop
@@ -65,7 +63,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -147,7 +144,7 @@ private fun DashboardScreen(vm: AppViewModel, nav: Nav) {
     val today = vm.today
     val dayTasks = vm.tasksToday()
     val tasksDone = dayTasks.count { vm.isTaskDone(it) }
-    val pending = dayTasks.filter { !vm.isTaskDone(it) }.take(3)
+    val pending = dayTasks.filter { !vm.isTaskDone(it) }
 
     val habitRows = vm.activeHabits().map { it to vm.habitStats(it) }
     val scheduled = habitRows.filter { it.second.scheduledToday }
@@ -161,7 +158,6 @@ private fun DashboardScreen(vm: AppViewModel, nav: Nav) {
         .filter { it.is_enabled }
         .mapNotNull { r -> Logic.nextTriggerMillis(r)?.let { r to it } }
         .sortedBy { it.second }
-        .take(3)
 
     val score = Logic.productivityScore(
         if (dayTasks.isNotEmpty()) tasksDone.toDouble() / dayTasks.size else null,
@@ -223,7 +219,7 @@ private fun DashboardScreen(vm: AppViewModel, nav: Nav) {
             SectionHeader("Today's habits", "$habitsDone/${scheduled.size}")
             AriaCard {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    scheduled.take(4).forEach { (h, st) ->
+                    scheduled.forEach { (h, st) ->
                         val color = h.color?.let { runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() } ?: a.category(h.category)
                         Row(Modifier.fillMaxWidth().clickable { nav.push(Route.HabitDetail(h.id)) }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text(h.name, color = a.text, fontSize = 16.sp, modifier = Modifier.weight(1f), maxLines = 1)
@@ -368,15 +364,17 @@ private fun PlannerScreen(vm: AppViewModel, nav: Nav) {
                     if (mode == "list") {
                         dayTasks.sortedBy { vm.isTaskDone(it, selected) }.forEach { TaskCard(vm, it, selected) { nav.push(Route.TaskForm(it.id, selected)) } }
                     } else {
+                        val timed = dayTasks.filter { it.start_time != null }.sortedBy { it.start_time }
                         val untimed = dayTasks.filter { it.start_time == null }
-                        val timed = dayTasks.filter { it.start_time != null }
-                        if (untimed.isNotEmpty()) {
-                            Text("ANYTIME", color = a.textMuted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
-                            untimed.forEach { TaskCard(vm, it, selected) { nav.push(Route.TaskForm(it.id, selected)) } }
-                        }
                         timed.forEach { t ->
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Text(Logic.timeRange(t.start_time, null) ?: "", color = a.textSecondary, fontSize = 12.sp, modifier = Modifier.width(64.dp))
+                                Text(Logic.timeRange(t.start_time, null) ?: "", color = a.textSecondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(64.dp).padding(top = 16.dp))
+                                Box(Modifier.weight(1f)) { TaskCard(vm, t, selected) { nav.push(Route.TaskForm(t.id, selected)) } }
+                            }
+                        }
+                        untimed.forEachIndexed { i, t ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text(if (i == 0) "Anytime" else "", color = a.textMuted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(64.dp).padding(top = 16.dp))
                                 Box(Modifier.weight(1f)) { TaskCard(vm, t, selected) { nav.push(Route.TaskForm(t.id, selected)) } }
                             }
                         }
@@ -497,36 +495,12 @@ fun HabitCard(vm: AppViewModel, h: Habit, st: Logic.HabitStats, onPress: () -> U
     }
 }
 
-/** Checkbox for once-a-day habits; a −/+ counter for multi-target habits. */
+/** A single checkbox-style control. Each tap adds one toward the daily target
+ *  (multi-target habits show their progress in the row's meta text); tapping when
+ *  already full resets to 0. */
 @Composable
 fun HabitToggle(vm: AppViewModel, h: Habit, st: Logic.HabitStats, color: Color) {
-    val a = LocalAria.current
-    val target = maxOf(1, h.target_count)
-    if (target <= 1) {
-        AriaCheckbox(st.doneToday, color) { vm.toggleHabit(h) }
-    } else {
-        Row(
-            Modifier.clip(RoundedCornerShape(999.dp)).background(color.copy(alpha = 0.12f)),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            HabitStepBtn(Icons.Filled.Remove, color, enabled = st.todayCount > 0) { vm.adjustHabit(h, -1) }
-            Text(
-                "${st.todayCount}/$target",
-                color = if (st.doneToday) color else a.text, fontWeight = FontWeight.Bold, fontSize = 14.sp,
-                textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 40.dp),
-            )
-            HabitStepBtn(Icons.Filled.Add, color, enabled = st.todayCount < target) { vm.adjustHabit(h, +1) }
-        }
-    }
-}
-
-@Composable
-private fun HabitStepBtn(icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, enabled: Boolean, onClick: () -> Unit) {
-    val a = LocalAria.current
-    Box(
-        Modifier.size(34.dp).clip(CircleShape).clickable(enabled = enabled, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) { Icon(icon, null, tint = if (enabled) color else a.textMuted, modifier = Modifier.size(18.dp)) }
+    AriaCheckbox(st.doneToday, color) { vm.stepHabit(h) }
 }
 
 // ── Water ──────────────────────────────────────────────────────────────────
