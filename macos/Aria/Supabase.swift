@@ -37,9 +37,10 @@ final class AuthModel: ObservableObject {
         } else {
             status = .signedOut
         }
-        // Observe future auth changes.
+        // Observe future auth changes. `authStateChanges` is actor-isolated in
+        // current supabase-swift, so the property access itself must be awaited.
         _Concurrency.Task {
-            for await change in Supa.client.auth.authStateChanges {
+            for await change in await Supa.client.auth.authStateChanges {
                 await MainActor.run { self.apply(change.session) }
             }
         }

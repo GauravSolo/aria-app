@@ -11,7 +11,9 @@ options:
 packages:
   Supabase:
     url: https://github.com/supabase/supabase-swift
-    from: "2.5.1"
+    # Pinned so the API doesn't drift and break the build (2.5.1's loose lower
+    # bound had let it jump to a newer, source-incompatible release).
+    exactVersion: "2.51.0"
 
 targets:
   Aria:
