@@ -99,3 +99,39 @@ data class WaterSettings(
     val active_end: String = "22:00",
     val updated_at: String = "",
 )
+
+@Serializable
+data class Reminder(
+    val id: String,
+    val user_id: String,
+    val title: String,
+    val body: String? = null,
+    val kind: String = "custom",
+    val ref_id: String? = null,
+    val repeat: String = "once",
+    val repeat_days: List<Int> = emptyList(),
+    val interval_min: Int? = null,
+    val time_of_day: String? = null,
+    val next_trigger_at: String? = null,
+    val is_enabled: Boolean = true,
+    val snooze_until: String? = null,
+    val local_notification_id: String? = null,
+    val created_at: String = "",
+    val updated_at: String = "",
+    val deleted_at: String? = null,
+)
+
+@Serializable
+data class NotificationHistory(
+    val id: String,
+    val user_id: String,
+    val reminder_id: String? = null,
+    val title: String,
+    val body: String? = null,
+    val kind: String = "custom",
+    val fired_at: String = "",
+    val status: String = "delivered",
+    val created_at: String = "",
+    val updated_at: String = "",
+    val deleted_at: String? = null,
+)

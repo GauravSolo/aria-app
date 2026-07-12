@@ -1,8 +1,11 @@
 package com.aria.app
 
+import android.Manifest
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
@@ -17,20 +20,27 @@ import com.aria.app.data.AppViewModel
 import com.aria.app.data.AuthStatus
 import com.aria.app.ui.AriaTheme
 import com.aria.app.ui.AuthScreen
-import com.aria.app.ui.MainScaffold
+import com.aria.app.ui.MainRoot
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
+                .launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
         setContent {
-            AriaTheme {
-                val vm: AppViewModel = viewModel()
+            val vm: AppViewModel = viewModel()
+            val mode by vm.themeMode.collectAsState()
+            AriaTheme(mode = mode) {
                 val status by vm.status.collectAsState()
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     when (status) {
                         AuthStatus.Loading -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
                         AuthStatus.SignedOut -> AuthScreen(vm)
-                        AuthStatus.SignedIn -> MainScaffold(vm)
+                        AuthStatus.SignedIn -> MainRoot(vm)
                     }
                 }
             }
