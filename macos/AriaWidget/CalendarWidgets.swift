@@ -116,7 +116,7 @@ struct HabitCalWidget: Widget {
         }
         .configurationDisplayName("Aria — Habit streak")
         .description("A habit's streak calendar.")
-        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        .supportedFamilies([.systemSmall])
     }
 }
 
@@ -170,6 +170,6 @@ struct TaskCalWidget: Widget {
         }
         .configurationDisplayName("Aria — Task calendar")
         .description("A repeating task's completion calendar.")
-        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        .supportedFamilies([.systemSmall])
     }
 }
