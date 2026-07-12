@@ -421,7 +421,8 @@ private fun MonthCalendar(color: Color, gridFor: (Int, Int) -> List<List<Logic.D
     val atCurrent = year > now.year || (year == now.year && month >= now.monthValue)
     val grid = gridFor(year, month)
     val years = (2025..now.year).toList().reversed()
-    val cell = 30.dp
+    val rowH = 36.dp
+    val gap = 5.dp
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         // Header: year at the left, month centered with prev/next arrows.
@@ -462,20 +463,21 @@ private fun MonthCalendar(color: Color, gridFor: (Int, Int) -> List<List<Logic.D
         }
 
         // Grid: weekday initials down the left, one column per week of the month.
-        Row {
-            Column {
+        // Week columns are weighted so the grid fills the full card width.
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) {
+            Column(verticalArrangement = Arrangement.spacedBy(gap)) {
                 WEEKDAY_INITIALS.forEach { letter ->
-                    Box(Modifier.size(width = 18.dp, height = cell), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(width = 16.dp, height = rowH), contentAlignment = Alignment.Center) {
                         Text(letter, color = a.textMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
             grid.forEach { week ->
-                Column {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(gap)) {
                     for (wd in 0 until 7) {
                         val day = week.getOrNull(wd)
                         if (day == null) {
-                            Box(Modifier.size(cell))
+                            Box(Modifier.fillMaxWidth().height(rowH))
                         } else {
                             val bg = when (day.status) {
                                 Logic.DayStatus.COMPLETED -> color
@@ -485,14 +487,12 @@ private fun MonthCalendar(color: Color, gridFor: (Int, Int) -> List<List<Logic.D
                                 Logic.DayStatus.FUTURE -> a.surfaceAlt
                             }
                             val fg = if (day.status == Logic.DayStatus.COMPLETED) a.onPrimary else a.textMuted
-                            Box(Modifier.size(cell).padding(1.dp), contentAlignment = Alignment.Center) {
-                                Box(
-                                    Modifier.fillMaxWidth().height(cell - 2.dp).clip(RoundedCornerShape(6.dp)).background(bg)
-                                        .then(if (day.status == Logic.DayStatus.PENDING) Modifier.border(1.5.dp, color, RoundedCornerShape(6.dp)) else Modifier),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Text("${day.date.substring(8).trimStart('0')}", color = fg, fontSize = 11.sp, fontWeight = FontWeight.Medium)
-                                }
+                            Box(
+                                Modifier.fillMaxWidth().height(rowH).clip(RoundedCornerShape(8.dp)).background(bg)
+                                    .then(if (day.status == Logic.DayStatus.PENDING) Modifier.border(1.5.dp, color, RoundedCornerShape(8.dp)) else Modifier),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text("${day.date.substring(8).trimStart('0')}", color = fg, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                             }
                         }
                     }
