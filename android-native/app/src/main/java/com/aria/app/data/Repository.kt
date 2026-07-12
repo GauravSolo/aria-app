@@ -36,12 +36,6 @@ object Repository {
         pg.from("notification_history").select { filter { eq("user_id", uid) } }.decodeList()
 
     suspend fun upsertTask(t: Task) { pg.from("tasks").upsert(t) }
-    /** Targeted completion update (used by the widget so it needn't fetch the row). */
-    suspend fun markTaskComplete(taskId: String, now: String) {
-        pg.from("tasks").update({
-            set("is_completed", true); set("completed_at", now); set("updated_at", now)
-        }) { filter { eq("id", taskId) } }
-    }
     suspend fun insertTask(t: Task) { pg.from("tasks").insert(t) }
     suspend fun upsertHabit(h: Habit) { pg.from("habits").upsert(h) }
     suspend fun insertHabit(h: Habit) { pg.from("habits").insert(h) }

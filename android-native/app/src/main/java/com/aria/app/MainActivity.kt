@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
@@ -23,6 +24,15 @@ import com.aria.app.ui.AuthScreen
 import com.aria.app.ui.MainRoot
 
 class MainActivity : ComponentActivity() {
+    private val vm: AppViewModel by viewModels()
+
+    /** Re-sync whenever the app comes to the foreground (e.g. after completing a
+     *  task from the widget) so the UI reflects the latest data. */
+    override fun onResume() {
+        super.onResume()
+        vm.refresh()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 

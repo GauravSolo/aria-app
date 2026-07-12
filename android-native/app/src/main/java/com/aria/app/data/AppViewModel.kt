@@ -86,6 +86,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     is SessionStatus.Authenticated -> {
                         uid = st.session.user?.id
                         email.value = st.session.user?.email
+                        loadCache() // show last-known data instantly, before the network load
                         status.value = AuthStatus.SignedIn
                         refresh()
                     }
@@ -138,10 +139,52 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 reminders.value = runCatching { Repository.reminders(u) }.getOrDefault(emptyList())
                 history.value = runCatching { Repository.notificationHistory(u) }.getOrDefault(emptyList())
             }.onFailure { error.value = it.message }
+            saveCache()
             bump()
             publishWidget()
             runCatching { ReminderScheduler.reschedule(ctx, activeReminders()) }
         }
+    }
+
+    // ── Local cache (instant startup + offline) ───────────────────────────
+    private val cacheJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+
+    private fun <T> encode(ser: kotlinx.serialization.KSerializer<T>, v: T): String = cacheJson.encodeToString(ser, v)
+    private fun <T> decode(ser: kotlinx.serialization.KSerializer<T>, key: String): T? =
+        prefs.getString(key, null)?.let { runCatching { cacheJson.decodeFromString(ser, it) }.getOrNull() }
+
+    private fun saveCache() {
+        val listT = kotlinx.serialization.builtins.ListSerializer(Task.serializer())
+        val listC = kotlinx.serialization.builtins.ListSerializer(TaskCompletion.serializer())
+        val listH = kotlinx.serialization.builtins.ListSerializer(Habit.serializer())
+        val listHl = kotlinx.serialization.builtins.ListSerializer(HabitLog.serializer())
+        val listW = kotlinx.serialization.builtins.ListSerializer(WaterLog.serializer())
+        val listR = kotlinx.serialization.builtins.ListSerializer(Reminder.serializer())
+        val listN = kotlinx.serialization.builtins.ListSerializer(NotificationHistory.serializer())
+        runCatching {
+            prefs.edit()
+                .putString("c_tasks", encode(listT, tasks.value))
+                .putString("c_completions", encode(listC, completions.value))
+                .putString("c_habits", encode(listH, habits.value))
+                .putString("c_habitLogs", encode(listHl, habitLogs.value))
+                .putString("c_waterLogs", encode(listW, waterLogs.value))
+                .putString("c_water", water.value?.let { encode(WaterSettings.serializer(), it) })
+                .putString("c_reminders", encode(listR, reminders.value))
+                .putString("c_history", encode(listN, history.value))
+                .apply()
+        }
+    }
+
+    private fun loadCache() {
+        decode(kotlinx.serialization.builtins.ListSerializer(Task.serializer()), "c_tasks")?.let { tasks.value = it }
+        decode(kotlinx.serialization.builtins.ListSerializer(TaskCompletion.serializer()), "c_completions")?.let { completions.value = it }
+        decode(kotlinx.serialization.builtins.ListSerializer(Habit.serializer()), "c_habits")?.let { habits.value = it }
+        decode(kotlinx.serialization.builtins.ListSerializer(HabitLog.serializer()), "c_habitLogs")?.let { habitLogs.value = it }
+        decode(kotlinx.serialization.builtins.ListSerializer(WaterLog.serializer()), "c_waterLogs")?.let { waterLogs.value = it }
+        decode(WaterSettings.serializer(), "c_water")?.let { water.value = it }
+        decode(kotlinx.serialization.builtins.ListSerializer(Reminder.serializer()), "c_reminders")?.let { reminders.value = it }
+        decode(kotlinx.serialization.builtins.ListSerializer(NotificationHistory.serializer()), "c_history")?.let { history.value = it }
+        bump()
     }
 
     // ── Derived ──────────────────────────────────────────────────────────
@@ -431,6 +474,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             runCatching { publishWidget() }
             runCatching { remote() }.onFailure { error.value = it.message }
             runCatching { publishWidget() }
+            saveCache()
             runCatching { ReminderScheduler.reschedule(ctx, activeReminders()) }
         }
     }

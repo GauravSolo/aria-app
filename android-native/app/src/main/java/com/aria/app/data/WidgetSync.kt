@@ -31,13 +31,20 @@ object WidgetSync {
         val now = Repository.now()
         runCatching {
             if (recurrence == "none") {
-                Repository.markTaskComplete(taskId, now)
+                val t = Repository.tasks(uid).firstOrNull { it.id == taskId } ?: return@runCatching
+                Repository.upsertTask(t.copy(is_completed = true, completed_at = now, updated_at = now))
             } else {
-                Repository.upsertCompletion(
-                    TaskCompletion(id = Repository.uuid(), user_id = uid, task_id = taskId, occurrence_date = Logic.today(), completed_at = now, created_at = now, updated_at = now),
-                )
+                val today = Logic.today()
+                val existing = Repository.completions(uid).firstOrNull { it.task_id == taskId && it.occurrence_date == today }
+                if (existing != null) {
+                    Repository.upsertCompletion(existing.copy(deleted_at = null, completed_at = now, updated_at = now))
+                } else {
+                    Repository.upsertCompletion(
+                        TaskCompletion(id = Repository.uuid(), user_id = uid, task_id = taskId, occurrence_date = today, completed_at = now, created_at = now, updated_at = now),
+                    )
+                }
             }
-        }
+        }.onFailure { android.util.Log.e("WidgetSync", "completeTask failed", it) }
     }
 
     /** Recompute the widget snapshot from fresh Supabase data + repaint the widget. */
