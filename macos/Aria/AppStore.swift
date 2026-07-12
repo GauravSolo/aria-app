@@ -229,7 +229,7 @@ final class AppStore: ObservableObject {
         let snap = WidgetSnapshot(
             generatedAt: ISO.now(),
             nextTaskTitle: pending.first?.title,
-            tasks: pending.prefix(8).map { WidgetTask(id: $0.id, title: $0.title, recurrence: $0.recurrence.rawValue) },
+            tasks: pending.prefix(12).map { WidgetTask(id: $0.id, title: $0.title, recurrence: $0.recurrence.rawValue) },
             pendingTasks: pending.count,
             totalTasks: dayTasks.count,
             waterMl: waterToday,

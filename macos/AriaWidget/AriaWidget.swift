@@ -66,8 +66,9 @@ struct AriaWidgetEntryView: View {
                 Text("No tasks left 🎉").font(.system(size: 13, weight: .medium)).foregroundStyle(WC.muted)
                 Spacer(minLength: 0)
             } else {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(s.tasks.prefix(6)) { t in
+                let shown = 9
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(s.tasks.prefix(shown)) { t in
                         Button(intent: ToggleTaskIntent(taskId: t.id, recurrence: t.recurrence)) {
                             HStack(spacing: 8) {
                                 Image(systemName: "circle").font(.system(size: 14)).foregroundStyle(WC.muted)
@@ -77,11 +78,12 @@ struct AriaWidgetEntryView: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    if s.pendingTasks > s.tasks.prefix(6).count {
-                        Text("+\(s.pendingTasks - s.tasks.prefix(6).count) more")
+                    if s.pendingTasks > s.tasks.prefix(shown).count {
+                        Text("+\(s.pendingTasks - s.tasks.prefix(shown).count) more")
                             .font(.system(size: 11)).foregroundStyle(WC.muted)
                     }
                 }
+                .padding(.top, 4)
                 Spacer(minLength: 0)
             }
         }
@@ -99,5 +101,6 @@ struct AriaWidget: Widget {
         .configurationDisplayName("Aria — Today")
         .description("Today's tasks, water and streaks — tap to check off tasks.")
         .supportedFamilies([.systemLarge])
+        .contentMarginsDisabled()
     }
 }
