@@ -91,7 +91,7 @@ final class AppStore: ObservableObject {
                 "completed_at": done ? .string(now) : .null,
                 "updated_at": .string(now),
             ]
-            push { try await Supa.client.from("tasks").update(payload).eq("id", value: id).execute() }
+            push { _ = try await Supa.client.from("tasks").update(payload).eq("id", value: id).execute() }
         } else {
             toggleCompletion(t)
             publishWidget()
@@ -108,12 +108,12 @@ final class AppStore: ObservableObject {
                 "deleted_at": nowDeleted ? .string(now) : .null,
                 "updated_at": .string(now),
             ]
-            push { try await Supa.client.from("task_completions").update(payload).eq("id", value: cid).execute() }
+            push { _ = try await Supa.client.from("task_completions").update(payload).eq("id", value: cid).execute() }
         } else {
             let row = TaskCompletion(id: newUUID(), userId: uid, taskId: t.id, occurrenceDate: today,
                                      completedAt: now, createdAt: now, updatedAt: now, deletedAt: nil)
             completions.append(row)
-            push { try await Supa.client.from("task_completions").insert(row).execute() }
+            push { _ = try await Supa.client.from("task_completions").insert(row).execute() }
         }
     }
 
@@ -144,17 +144,17 @@ final class AppStore: ObservableObject {
             if count <= 0 {
                 habitLogs[i].deletedAt = now
                 let payload: [String: AnyJSON] = ["deleted_at": .string(now), "updated_at": .string(now)]
-                push { try await Supa.client.from("habit_logs").update(payload).eq("id", value: logId).execute() }
+                push { _ = try await Supa.client.from("habit_logs").update(payload).eq("id", value: logId).execute() }
             } else {
                 habitLogs[i].count = count; habitLogs[i].deletedAt = nil
                 let payload: [String: AnyJSON] = ["count": .integer(count), "deleted_at": .null, "updated_at": .string(now)]
-                push { try await Supa.client.from("habit_logs").update(payload).eq("id", value: logId).execute() }
+                push { _ = try await Supa.client.from("habit_logs").update(payload).eq("id", value: logId).execute() }
             }
         } else if count > 0 {
             let row = HabitLog(id: newUUID(), userId: uid, habitId: h.id, logDate: today,
                                count: count, createdAt: now, updatedAt: now, deletedAt: nil)
             habitLogs.append(row)
-            push { try await Supa.client.from("habit_logs").insert(row).execute() }
+            push { _ = try await Supa.client.from("habit_logs").insert(row).execute() }
         }
         publishWidget()
     }
