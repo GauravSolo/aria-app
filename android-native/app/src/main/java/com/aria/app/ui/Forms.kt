@@ -304,7 +304,7 @@ private fun HabitFormScreen(vm: AppViewModel, nav: Nav, id: String?) {
 // ── Habit detail ─────────────────────────────────────────────────────────────
 @Composable
 private fun HabitDetailScreen(vm: AppViewModel, nav: Nav, id: String) {
-    vm.habits.collectAsState(); vm.habitLogs.collectAsState()
+    vm.dataRev.collectAsState().value
     val a = LocalAria.current
     val today = vm.today
     val habit = vm.habitById(id)
@@ -426,7 +426,7 @@ private fun HabitCalendar(weeks: List<List<Logic.DayCell>>, color: Color) {
 // ── Reminders ─────────────────────────────────────────────────────────────
 @Composable
 private fun RemindersScreen(vm: AppViewModel, nav: Nav) {
-    vm.reminders.collectAsState(); vm.history.collectAsState()
+    vm.dataRev.collectAsState().value
     val a = LocalAria.current
     var tab by remember { mutableStateOf("reminders") }
     val reminders = vm.activeReminders()
@@ -547,7 +547,7 @@ private fun ReminderFormScreen(vm: AppViewModel, nav: Nav, id: String?) {
 // ── Water settings ────────────────────────────────────────────────────────────
 @Composable
 private fun WaterSettingsScreen(vm: AppViewModel, nav: Nav) {
-    vm.water.collectAsState()
+    vm.dataRev.collectAsState().value
     val a = LocalAria.current
     val s = vm.water.value ?: return
 

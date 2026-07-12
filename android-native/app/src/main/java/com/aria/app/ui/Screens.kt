@@ -132,19 +132,12 @@ fun MainScaffold(vm: AppViewModel, nav: Nav) {
     }
 }
 
-@Composable
-private fun observe(vm: AppViewModel) {
-    vm.tasks.collectAsState(); vm.completions.collectAsState(); vm.habits.collectAsState()
-    vm.habitLogs.collectAsState(); vm.waterLogs.collectAsState(); vm.water.collectAsState()
-    vm.reminders.collectAsState(); vm.history.collectAsState()
-}
-
 private fun Modifier.screenScroll() = this
 
 // ── Today / Dashboard ──────────────────────────────────────────────────────
 @Composable
 private fun DashboardScreen(vm: AppViewModel, nav: Nav) {
-    observe(vm)
+    vm.dataRev.collectAsState().value
     val a = LocalAria.current
     val today = vm.today
     val dayTasks = vm.tasksToday()
@@ -335,7 +328,7 @@ fun TaskCard(vm: AppViewModel, task: Task, date: String, onPress: () -> Unit) {
 // ── Planner ────────────────────────────────────────────────────────────────
 @Composable
 private fun PlannerScreen(vm: AppViewModel, nav: Nav) {
-    observe(vm)
+    vm.dataRev.collectAsState().value
     val a = LocalAria.current
     var selected by rememberSaveable { mutableStateOf(vm.today) }
     var mode by rememberSaveable { mutableStateOf("list") }
@@ -431,7 +424,7 @@ fun Fab(onClick: () -> Unit) {
 // ── Habits ─────────────────────────────────────────────────────────────────
 @Composable
 private fun HabitsScreen(vm: AppViewModel, nav: Nav) {
-    observe(vm)
+    vm.dataRev.collectAsState().value
     val a = LocalAria.current
     val today = vm.today
     val rows = vm.activeHabits().map { it to vm.habitStats(it) }
@@ -501,7 +494,7 @@ fun HabitCard(vm: AppViewModel, h: Habit, st: Logic.HabitStats, onPress: () -> U
 // ── Water ──────────────────────────────────────────────────────────────────
 @Composable
 private fun WaterScreen(vm: AppViewModel, nav: Nav) {
-    observe(vm)
+    vm.dataRev.collectAsState().value
     val a = LocalAria.current
     val goal = vm.water.value?.daily_goal_ml ?: 4000
     val glass = vm.water.value?.glass_size_ml ?: 250
@@ -571,7 +564,7 @@ private fun WaterScreen(vm: AppViewModel, nav: Nav) {
 // ── Stats / Analytics ────────────────────────────────────────────────────────
 @Composable
 private fun StatsScreen(vm: AppViewModel) {
-    observe(vm)
+    vm.dataRev.collectAsState().value
     val a = LocalAria.current
     var days by rememberSaveable { mutableStateOf(7) }
     val goal = vm.water.value?.daily_goal_ml ?: 4000

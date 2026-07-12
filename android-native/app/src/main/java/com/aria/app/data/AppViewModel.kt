@@ -74,6 +74,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val reminders = MutableStateFlow<List<Reminder>>(emptyList())
     val history = MutableStateFlow<List<NotificationHistory>>(emptyList())
 
+    /** Bumped on every data change; screens read it so they recompose immediately. */
+    val dataRev = MutableStateFlow(0)
+
     private var uid: String? = null
 
     init {
@@ -135,6 +138,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 reminders.value = runCatching { Repository.reminders(u) }.getOrDefault(emptyList())
                 history.value = runCatching { Repository.notificationHistory(u) }.getOrDefault(emptyList())
             }.onFailure { error.value = it.message }
+            bump()
             publishWidget()
             runCatching { ReminderScheduler.reschedule(ctx, activeReminders()) }
         }
@@ -198,19 +202,23 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun habitById(id: String): Habit? = habits.value.firstOrNull { it.id == id }
 
     // ── Task mutations ──────────────────────────────────────────────────────
-    fun toggleTask(t: Task, date: String = today) = mutate {
+    fun toggleTask(t: Task, date: String = today) {
+        val now = Repository.now()
         if (t.recurrence == "none") {
             val done = !t.is_completed
-            Repository.upsertTask(t.copy(is_completed = done, completed_at = if (done) Repository.now() else null, updated_at = Repository.now()))
+            val updated = t.copy(is_completed = done, completed_at = if (done) now else null, updated_at = now)
+            tasks.value = tasks.value.map { if (it.id == t.id) updated else it }
+            sync { Repository.upsertTask(updated) }
         } else {
             val existing = completions.value.firstOrNull { it.task_id == t.id && it.occurrence_date == date }
             if (existing != null) {
-                val del = existing.deleted_at == null
-                Repository.upsertCompletion(existing.copy(deleted_at = if (del) Repository.now() else null, updated_at = Repository.now()))
+                val upd = existing.copy(deleted_at = if (existing.deleted_at == null) now else null, updated_at = now)
+                completions.value = completions.value.map { if (it.id == existing.id) upd else it }
+                sync { Repository.upsertCompletion(upd) }
             } else {
-                Repository.upsertCompletion(
-                    TaskCompletion(id = Repository.uuid(), user_id = uid!!, task_id = t.id, occurrence_date = date, completed_at = Repository.now(), created_at = Repository.now(), updated_at = Repository.now())
-                )
+                val row = TaskCompletion(id = Repository.uuid(), user_id = uid!!, task_id = t.id, occurrence_date = date, completed_at = now, created_at = now, updated_at = now)
+                completions.value = completions.value + row
+                sync { Repository.upsertCompletion(row) }
             }
         }
     }
@@ -248,25 +256,30 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ── Habit mutations ──────────────────────────────────────────────────────
-    fun toggleHabit(h: Habit, date: String = today) = mutate {
+    fun toggleHabit(h: Habit, date: String = today) {
         val target = maxOf(1, h.target_count)
         val cur = habitCounts(h.id)[date] ?: 0
         setHabitCount(h, date, if (cur >= target) 0 else target)
     }
 
-    fun adjustHabit(h: Habit, delta: Int, date: String = today) = mutate {
+    fun adjustHabit(h: Habit, delta: Int, date: String = today) {
         val cur = habitCounts(h.id)[date] ?: 0
         setHabitCount(h, date, maxOf(0, cur + delta))
     }
 
-    private suspend fun setHabitCount(h: Habit, date: String, count: Int) {
+    private fun setHabitCount(h: Habit, date: String, count: Int) {
+        val now = Repository.now()
         val existing = habitLogs.value.firstOrNull { it.habit_id == h.id && it.log_date == date }
-        when {
-            count <= 0 -> if (existing != null && existing.deleted_at == null)
-                Repository.upsertHabitLog(existing.copy(deleted_at = Repository.now(), updated_at = Repository.now()))
-            existing != null -> Repository.upsertHabitLog(existing.copy(count = count, deleted_at = null, updated_at = Repository.now()))
-            else -> Repository.upsertHabitLog(HabitLog(id = Repository.uuid(), user_id = uid!!, habit_id = h.id, log_date = date, count = count, created_at = Repository.now(), updated_at = Repository.now()))
+        val row: HabitLog
+        if (existing != null) {
+            row = existing.copy(count = maxOf(0, count), deleted_at = if (count <= 0) now else null, updated_at = now)
+            habitLogs.value = habitLogs.value.map { if (it.id == existing.id) row else it }
+        } else {
+            if (count <= 0) return
+            row = HabitLog(id = Repository.uuid(), user_id = uid!!, habit_id = h.id, log_date = date, count = count, created_at = now, updated_at = now)
+            habitLogs.value = habitLogs.value + row
         }
+        sync { Repository.upsertHabitLog(row) }
     }
 
     fun saveHabit(existing: Habit?, input: HabitInput) = mutate {
@@ -299,20 +312,24 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ── Water mutations ──────────────────────────────────────────────────────
-    fun logWater(ml: Int) = mutate {
-        Repository.insertWater(WaterLog(id = Repository.uuid(), user_id = uid!!, log_date = today, amount_ml = ml, logged_at = Repository.now(), created_at = Repository.now(), updated_at = Repository.now()))
+    fun logWater(ml: Int) {
+        val now = Repository.now()
+        val row = WaterLog(id = Repository.uuid(), user_id = uid!!, log_date = today, amount_ml = ml, logged_at = now, created_at = now, updated_at = now)
+        waterLogs.value = waterLogs.value + row
+        sync { Repository.insertWater(row) }
     }
 
-    fun undoLastWater() = mutate {
-        val last = waterLogs.value.filter { it.deleted_at == null && it.log_date == today }
-            .maxByOrNull { it.logged_at }
-        if (last != null) Repository.upsertWater(last.copy(deleted_at = Repository.now(), updated_at = Repository.now()))
+    fun undoLastWater() {
+        val last = waterLogs.value.filter { it.deleted_at == null && it.log_date == today }.maxByOrNull { it.logged_at } ?: return
+        val upd = last.copy(deleted_at = Repository.now(), updated_at = Repository.now())
+        waterLogs.value = waterLogs.value.map { if (it.id == last.id) upd else it }
+        sync { Repository.upsertWater(upd) }
     }
 
-    fun saveWater(s: WaterSettings) = mutate {
+    fun saveWater(s: WaterSettings) {
         val next = s.copy(updated_at = Repository.now())
-        Repository.upsertWaterSettings(next)
         water.value = next
+        sync { Repository.upsertWaterSettings(next) }
     }
 
     // ── Reminder mutations ──────────────────────────────────────────────────
@@ -370,6 +387,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     created_at = Repository.now(), updated_at = Repository.now(),
                 )
             )
+        }
+    }
+
+    private fun bump() { dataRev.value = dataRev.value + 1 }
+
+    /** Caller already applied the optimistic local change; notify UI now, push to
+     *  Supabase in the background + refresh the widget. No blocking network re-fetch. */
+    private fun sync(remote: suspend () -> Unit) {
+        bump()
+        viewModelScope.launch {
+            runCatching { remote() }.onFailure { error.value = it.message }
+            publishWidget()
+            runCatching { ReminderScheduler.reschedule(ctx, activeReminders()) }
         }
     }
 
