@@ -247,6 +247,37 @@ object Logic {
     enum class DayStatus { COMPLETED, MISSED, PENDING, OFF, FUTURE }
     data class DayCell(val date: String, val status: DayStatus, val count: Int)
 
+    val MONTH_FULL = listOf(
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December",
+    )
+    fun monthName(month: Int): String = MONTH_FULL[(month - 1).coerceIn(0, 11)]
+
+    /** One calendar month laid out as weeks (each 7 cells, Sun→Sat).
+     *  `null` marks a slot before the 1st or after the last day of the month. */
+    fun monthGrid(h: Habit, counts: Map<String, Int>, year: Int, month: Int, today: String = today()): List<List<DayCell?>> {
+        val target = maxOf(1, h.target_count)
+        val first = LocalDate.of(year, month, 1)
+        val daysInMonth = first.lengthOfMonth()
+        val lead = first.dayOfWeek.value % 7 // 0 = Sunday
+        val cells = ArrayList<DayCell?>()
+        repeat(lead) { cells.add(null) }
+        for (dnum in 1..daysInMonth) {
+            val key = LocalDate.of(year, month, dnum).toString()
+            val count = counts[key] ?: 0
+            val status = when {
+                key > today -> DayStatus.FUTURE
+                !isScheduledOn(h, key) -> DayStatus.OFF
+                count >= target -> DayStatus.COMPLETED
+                key == today -> DayStatus.PENDING
+                else -> DayStatus.MISSED
+            }
+            cells.add(DayCell(key, status, count))
+        }
+        while (cells.size % 7 != 0) cells.add(null)
+        return cells.chunked(7)
+    }
+
     /** Contribution-style grid: list of weeks (columns), each 7 days (Sun→Sat). */
     fun buildCalendar(h: Habit, counts: Map<String, Int>, weeks: Int = 16, today: String = today()): List<List<DayCell>> {
         val target = maxOf(1, h.target_count)

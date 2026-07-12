@@ -34,12 +34,15 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -52,6 +55,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -317,7 +321,6 @@ private fun HabitDetailScreen(vm: AppViewModel, nav: Nav, id: String) {
     }
     val counts = vm.habitCounts(id)
     val st = Logic.computeHabitStats(habit, counts, today)
-    val calendar = Logic.buildCalendar(habit, counts, 16, today)
     val color = toColor(habit.color) ?: a.category(habit.category)
     val target = maxOf(1, habit.target_count)
 
@@ -365,9 +368,9 @@ private fun HabitDetailScreen(vm: AppViewModel, nav: Nav, id: String) {
             }
         }
         AriaCard {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Text("Completion calendar", color = a.text, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                HabitCalendar(calendar, color)
+                HabitMonthCalendar(habit, counts, color, today)
             }
         }
         if (!habit.notes.isNullOrBlank()) AriaCard {
@@ -392,34 +395,113 @@ private fun ProgressRow(label: String, done: Int, total: Int, color: Color) {
     }
 }
 
+private val WEEKDAY_INITIALS = listOf("S", "M", "T", "W", "T", "F", "S")
+
 @Composable
-private fun HabitCalendar(weeks: List<List<Logic.DayCell>>, color: Color) {
+private fun HabitMonthCalendar(habit: com.aria.app.data.Habit, counts: Map<String, Int>, color: Color, today: String) {
     val a = LocalAria.current
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            weeks.forEach { col ->
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    col.forEach { cell ->
-                        val bg = when (cell.status) {
-                            Logic.DayStatus.COMPLETED -> color
-                            Logic.DayStatus.MISSED -> a.dangerSoft
-                            Logic.DayStatus.PENDING -> a.surface
-                            Logic.DayStatus.OFF -> a.track
-                            Logic.DayStatus.FUTURE -> a.surfaceAlt
+    val now = remember { LocalDate.now() }
+    var year by rememberSaveable { mutableStateOf(now.year) }
+    var month by rememberSaveable { mutableStateOf(now.monthValue) }
+    var monthMenu by remember { mutableStateOf(false) }
+    var yearMenu by remember { mutableStateOf(false) }
+
+    fun shift(delta: Int) {
+        val d = LocalDate.of(year, month, 1).plusMonths(delta.toLong())
+        year = d.year; month = d.monthValue
+    }
+    val atCurrent = year > now.year || (year == now.year && month >= now.monthValue)
+    val grid = Logic.monthGrid(habit, counts, year, month, today)
+    val years = (now.year - 10..now.year).toList().reversed()
+
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        // Header: year at the left, month centered with prev/next arrows.
+        Box(Modifier.fillMaxWidth()) {
+            Box(Modifier.align(Alignment.CenterStart)) {
+                Text(
+                    "$year", color = a.textSecondary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { yearMenu = true }.padding(horizontal = 8.dp, vertical = 4.dp),
+                )
+                DropdownMenu(expanded = yearMenu, onDismissRequest = { yearMenu = false }) {
+                    years.forEach { y ->
+                        DropdownMenuItem(text = { Text("$y") }, onClick = { year = y; yearMenu = false })
+                    }
+                }
+            }
+            Row(Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Box(Modifier.size(32.dp).clip(CircleShape).clickable { shift(-1) }, contentAlignment = Alignment.Center) {
+                    Icon(Icons.Outlined.ChevronLeft, "Previous month", tint = a.text, modifier = Modifier.size(22.dp))
+                }
+                Box {
+                    Text(
+                        Logic.monthName(month), color = a.text, fontSize = 17.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { monthMenu = true }.padding(horizontal = 10.dp, vertical = 4.dp),
+                    )
+                    DropdownMenu(expanded = monthMenu, onDismissRequest = { monthMenu = false }) {
+                        Logic.MONTH_FULL.forEachIndexed { i, name ->
+                            DropdownMenuItem(text = { Text(name) }, onClick = { month = i + 1; monthMenu = false })
                         }
-                        Box(Modifier.size(15.dp).clip(RoundedCornerShape(4.dp)).background(bg)
-                            .then(if (cell.status == Logic.DayStatus.PENDING) Modifier.border(1.dp, a.borderStrong, RoundedCornerShape(4.dp)) else Modifier))
+                    }
+                }
+                Box(
+                    Modifier.size(32.dp).clip(CircleShape).clickable(enabled = !atCurrent) { shift(1) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Outlined.ChevronRight, "Next month", tint = if (atCurrent) a.textMuted else a.text, modifier = Modifier.size(22.dp))
+                }
+            }
+        }
+
+        // Grid: weekday initials down the left, one column per week of the month.
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                WEEKDAY_INITIALS.forEach { letter ->
+                    Box(Modifier.size(width = 14.dp, height = 26.dp), contentAlignment = Alignment.Center) {
+                        Text(letter, color = a.textMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+            grid.forEach { week ->
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    for (wd in 0 until 7) {
+                        val cell = week.getOrNull(wd)
+                        if (cell == null) {
+                            Box(Modifier.size(26.dp))
+                        } else {
+                            val bg = when (cell.status) {
+                                Logic.DayStatus.COMPLETED -> color
+                                Logic.DayStatus.MISSED -> a.dangerSoft
+                                Logic.DayStatus.PENDING -> a.surface
+                                Logic.DayStatus.OFF -> a.track
+                                Logic.DayStatus.FUTURE -> a.surfaceAlt
+                            }
+                            val fg = if (cell.status == Logic.DayStatus.COMPLETED) a.onPrimary else a.textMuted
+                            Box(
+                                Modifier.size(26.dp).clip(RoundedCornerShape(6.dp)).background(bg)
+                                    .then(if (cell.status == Logic.DayStatus.PENDING) Modifier.border(1.5.dp, color, RoundedCornerShape(6.dp)) else Modifier),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text("${cell.date.substring(8).trimStart('0')}", color = fg, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                            }
+                        }
                     }
                 }
             }
         }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            Box(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp)).background(a.track))
-            Text("Less", color = a.textMuted, fontSize = 12.sp)
-            Box(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp)).background(color.copy(alpha = 0.4f)))
-            Box(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp)).background(color))
-            Text("More", color = a.textMuted, fontSize = 12.sp)
+
+        // Legend
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            LegendDot(color, "Done"); LegendDot(a.dangerSoft, "Missed"); LegendDot(a.track, "Off")
         }
+    }
+}
+
+@Composable
+private fun LegendDot(color: Color, label: String) {
+    val a = LocalAria.current
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        Box(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp)).background(color))
+        Text(label, color = a.textMuted, fontSize = 12.sp)
     }
 }
 
