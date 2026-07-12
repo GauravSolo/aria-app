@@ -14,6 +14,18 @@ object WidgetSync {
 
     /** Mark a pending task done (from the widget checkbox), then refresh the widget. */
     suspend fun completeTask(ctx: Context, taskId: String) {
+        // Optimistically drop the tapped task so it disappears instantly (the Glance
+        // checkbox otherwise snaps back to unchecked before the network round-trip).
+        val cur = WidgetStore.read(ctx)
+        if (cur.tasks.any { it.id == taskId }) {
+            WidgetStore.write(ctx, cur.copy(
+                tasks = cur.tasks.filter { it.id != taskId },
+                pendingTasks = maxOf(0, cur.pendingTasks - 1),
+                nextTaskTitle = cur.tasks.firstOrNull { it.id != taskId }?.title,
+            ))
+            runCatching { AriaWidget().updateAll(ctx) }
+        }
+
         Supa.init(ctx.applicationContext)
         runCatching { Supa.client.auth.awaitInitialization() }
         val uid = uid(ctx) ?: return

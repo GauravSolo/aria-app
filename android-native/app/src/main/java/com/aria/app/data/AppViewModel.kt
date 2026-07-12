@@ -426,8 +426,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private fun sync(remote: suspend () -> Unit) {
         bump()
         viewModelScope.launch {
+            // Reflect the change on the widget immediately (from optimistic local
+            // state) so it doesn't wait on — or get blocked by — the network push.
+            runCatching { publishWidget() }
             runCatching { remote() }.onFailure { error.value = it.message }
-            publishWidget()
+            runCatching { publishWidget() }
             runCatching { ReminderScheduler.reschedule(ctx, activeReminders()) }
         }
     }
