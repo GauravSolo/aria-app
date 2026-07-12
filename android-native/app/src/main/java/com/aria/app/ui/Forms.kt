@@ -461,35 +461,42 @@ private fun MonthCalendar(color: Color, gridFor: (Int, Int) -> List<List<Logic.D
         }
 
         // Grid: weekday initials down the left, one column per week of the month.
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        // Square cells spread evenly across the width (no big weighted gaps).
+        val squareBg = a.track
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 WEEKDAY_INITIALS.forEach { letter ->
-                    Box(Modifier.size(width = 14.dp, height = 26.dp), contentAlignment = Alignment.Center) {
-                        Text(letter, color = a.textMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    Box(Modifier.size(width = 20.dp, height = 38.dp), contentAlignment = Alignment.Center) {
+                        Text(letter, color = a.textMuted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
             grid.forEach { week ->
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     for (wd in 0 until 7) {
                         val day = week.getOrNull(wd)
                         if (day == null) {
-                            Box(Modifier.size(26.dp))
+                            Box(Modifier.size(38.dp))
                         } else {
                             val bg = when (day.status) {
                                 Logic.DayStatus.COMPLETED -> color
                                 Logic.DayStatus.MISSED -> a.dangerSoft
-                                Logic.DayStatus.PENDING -> a.surface
-                                Logic.DayStatus.OFF -> a.track
-                                Logic.DayStatus.FUTURE -> a.surfaceAlt
+                                Logic.DayStatus.PENDING -> squareBg
+                                Logic.DayStatus.OFF -> squareBg
+                                Logic.DayStatus.FUTURE -> squareBg
                             }
-                            val fg = if (day.status == Logic.DayStatus.COMPLETED) a.onPrimary else a.textMuted
+                            val fg = when (day.status) {
+                                Logic.DayStatus.COMPLETED -> a.onPrimary
+                                Logic.DayStatus.MISSED -> a.danger
+                                Logic.DayStatus.OFF -> a.textMuted.copy(alpha = 0.4f)
+                                else -> a.textSecondary
+                            }
                             Box(
-                                Modifier.size(26.dp).clip(RoundedCornerShape(6.dp)).background(bg)
-                                    .then(if (day.status == Logic.DayStatus.PENDING) Modifier.border(1.5.dp, color, RoundedCornerShape(6.dp)) else Modifier),
+                                Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)).background(bg)
+                                    .then(if (day.status == Logic.DayStatus.PENDING) Modifier.border(2.dp, color, RoundedCornerShape(10.dp)) else Modifier),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Text("${day.date.substring(8).trimStart('0')}", color = fg, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                                Text("${day.date.substring(8).trimStart('0')}", color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                             }
                         }
                     }
