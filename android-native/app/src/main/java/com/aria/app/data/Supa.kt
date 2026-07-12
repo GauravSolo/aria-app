@@ -7,6 +7,8 @@ import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.MemoryCodeVerifierCache
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.serializer.KotlinXSerializer
+import kotlinx.serialization.json.Json
 
 /** Global Supabase client, initialized once from the Application. */
 object Supa {
@@ -19,6 +21,13 @@ object Supa {
             supabaseUrl = Config.SUPABASE_URL,
             supabaseKey = Config.SUPABASE_ANON_KEY,
         ) {
+            // encodeDefaults=true so null/default fields (e.g. deleted_at=null when
+            // un-deleting, is_completed=false when unchecking) are actually sent in
+            // upserts — otherwise those changes silently don't persist.
+            defaultSerializer = KotlinXSerializer(Json {
+                encodeDefaults = true
+                ignoreUnknownKeys = true
+            })
             install(Auth) {
                 sessionManager = PrefsSessionManager(context.applicationContext)
                 codeVerifierCache = MemoryCodeVerifierCache()
