@@ -1,14 +1,15 @@
 package com.aria.app.data
 
 import android.content.Context
-import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
-import kotlinx.coroutines.flow.first
+import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.state.getAppWidgetState
+import androidx.glance.appwidget.state.updateAppWidgetState
+import androidx.glance.appwidget.updateAll
+import androidx.glance.state.PreferencesGlanceStateDefinition
+import com.aria.app.widget.AriaWidget
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-
-val Context.widgetDataStore by preferencesDataStore(name = "aria_widget")
 
 @Serializable
 data class WidgetTask(val id: String, val title: String)
@@ -28,17 +29,36 @@ data class WidgetSnapshot(
     val waterPct: Int get() = if (waterGoal > 0) (waterMl * 100f / waterGoal).toInt() else 0
 }
 
-/** In-process shared store the app writes and the Glance widget reads. */
+/**
+ * The snapshot is stored in each widget's Glance state (not a private DataStore),
+ * so `currentState` inside the composable updates reactively — otherwise a value
+ * read once in provideGlance is captured at bind time and never refreshes.
+ */
 object WidgetStore {
-    private val KEY = stringPreferencesKey("snapshot")
+    val SNAPSHOT_KEY = stringPreferencesKey("snapshot")
     private val json = Json { ignoreUnknownKeys = true }
 
-    suspend fun write(context: Context, snapshot: WidgetSnapshot) {
-        context.widgetDataStore.edit { it[KEY] = json.encodeToString(WidgetSnapshot.serializer(), snapshot) }
+    fun encode(snapshot: WidgetSnapshot): String =
+        json.encodeToString(WidgetSnapshot.serializer(), snapshot)
+
+    fun decode(raw: String?): WidgetSnapshot =
+        raw?.let { runCatching { json.decodeFromString(WidgetSnapshot.serializer(), it) }.getOrNull() } ?: WidgetSnapshot()
+
+    /** Current snapshot (from the first placed widget), for optimistic edits. */
+    suspend fun read(context: Context): WidgetSnapshot {
+        val id = GlanceAppWidgetManager(context).getGlanceIds(AriaWidget::class.java).firstOrNull() ?: return WidgetSnapshot()
+        return runCatching { decode(getAppWidgetState(context, PreferencesGlanceStateDefinition, id)[SNAPSHOT_KEY]) }.getOrDefault(WidgetSnapshot())
     }
 
-    suspend fun read(context: Context): WidgetSnapshot {
-        val raw = context.widgetDataStore.data.first()[KEY] ?: return WidgetSnapshot()
-        return runCatching { json.decodeFromString(WidgetSnapshot.serializer(), raw) }.getOrDefault(WidgetSnapshot())
+    /** Write the snapshot into every placed widget's Glance state and repaint. */
+    suspend fun push(context: Context, snapshot: WidgetSnapshot) {
+        val raw = encode(snapshot)
+        val ids = GlanceAppWidgetManager(context).getGlanceIds(AriaWidget::class.java)
+        ids.forEach { id ->
+            updateAppWidgetState(context, PreferencesGlanceStateDefinition, id) { prefs ->
+                prefs.toMutablePreferences().apply { this[SNAPSHOT_KEY] = raw }
+            }
+        }
+        AriaWidget().updateAll(context)
     }
 }

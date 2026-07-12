@@ -18,12 +18,11 @@ object WidgetSync {
         // checkbox otherwise snaps back to unchecked before the network round-trip).
         val cur = WidgetStore.read(ctx)
         if (cur.tasks.any { it.id == taskId }) {
-            WidgetStore.write(ctx, cur.copy(
+            WidgetStore.push(ctx, cur.copy(
                 tasks = cur.tasks.filter { it.id != taskId },
                 pendingTasks = maxOf(0, cur.pendingTasks - 1),
                 nextTaskTitle = cur.tasks.firstOrNull { it.id != taskId }?.title,
             ))
-            runCatching { AriaWidget().updateAll(ctx) }
         }
 
         Supa.init(ctx.applicationContext)
@@ -83,7 +82,6 @@ object WidgetSync {
             habitsTotal = scheduled.size,
             topStreak = habits.maxOfOrNull { statsOf(it).current } ?: 0,
         )
-        WidgetStore.write(ctx, snap)
-        AriaWidget().updateAll(ctx)
+        WidgetStore.push(ctx, snap)
     }
 }

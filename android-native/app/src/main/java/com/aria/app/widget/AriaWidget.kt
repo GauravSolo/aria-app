@@ -4,6 +4,9 @@ import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.datastore.preferences.core.Preferences
+import androidx.glance.currentState
+import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
@@ -49,9 +52,13 @@ class ToggleTaskAction : ActionCallback {
 }
 
 class AriaWidget : GlanceAppWidget() {
+    override val stateDefinition = PreferencesGlanceStateDefinition
+
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val snapshot = WidgetStore.read(context)
-        provideContent { WidgetContent(snapshot) }
+        provideContent {
+            val prefs = currentState<Preferences>()
+            WidgetContent(WidgetStore.decode(prefs[WidgetStore.SNAPSHOT_KEY]))
+        }
     }
 }
 

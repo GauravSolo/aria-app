@@ -450,7 +450,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             habitsTotal = scheduled.size,
             topStreak = activeHabits().maxOfOrNull { habitStats(it).current } ?: 0,
         )
-        WidgetStore.write(ctx, snap)
-        runCatching { AriaWidget().updateAll(ctx) }
+        runCatching { WidgetStore.push(ctx, snap) }
     }
 }
