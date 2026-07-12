@@ -53,7 +53,6 @@ struct CalendarGridView: View {
                 Spacer()
             }
         }
-        .padding(10)
         .containerBackground(CC.bg, for: .widget)
     }
 
