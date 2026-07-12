@@ -3,6 +3,7 @@ import SwiftUI
 struct RootView: View {
     @StateObject private var auth = AuthModel()
     @StateObject private var store = AppStore()
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Group {
@@ -20,6 +21,13 @@ struct RootView: View {
         .task { await auth.bootstrap() }
         .task(id: auth.userId) {
             if let uid = auth.userId { await store.load(uid: uid) }
+        }
+        // Re-sync when the app becomes active — applies widget checkbox taps and
+        // refreshes data (like the Android on-resume refresh).
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active, let uid = auth.userId {
+                _Concurrency.Task { await store.load(uid: uid) }
+            }
         }
     }
 }
