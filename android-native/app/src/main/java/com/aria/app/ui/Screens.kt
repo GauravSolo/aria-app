@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -211,22 +212,26 @@ private fun DashboardScreen(vm: AppViewModel, nav: Nav) {
         when {
             dayTasks.isEmpty() -> AriaCard { Text("No tasks today. Tap \"Task\" to plan your day.", color = a.textSecondary, fontSize = 14.sp) }
             pending.isEmpty() -> AriaCard { Text("All tasks done — great work! 🎉", color = a.success, fontSize = 14.sp) }
-            else -> pending.forEach { TaskCard(vm, it, today) { nav.push(Route.TaskForm(it.id, today)) } }
+            else -> Column(Modifier.heightIn(max = 290.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                pending.forEach { TaskCard(vm, it, today) { nav.push(Route.TaskForm(it.id, today)) } }
+            }
         }
 
         // Habits
         if (scheduled.isNotEmpty()) {
             SectionHeader("Today's habits", "$habitsDone/${scheduled.size}")
             AriaCard {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.heightIn(max = 168.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     scheduled.forEach { (h, st) ->
                         val color = h.color?.let { runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() } ?: a.category(h.category)
+                        val target = maxOf(1, h.target_count)
                         Row(Modifier.fillMaxWidth().clickable { nav.push(Route.HabitDetail(h.id)) }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text(h.name, color = a.text, fontSize = 16.sp, modifier = Modifier.weight(1f), maxLines = 1)
                             if (st.current > 0) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                                 Icon(Icons.Filled.LocalFireDepartment, null, tint = a.warning, modifier = Modifier.size(13.dp))
                                 Text("${st.current}", color = a.textSecondary, fontSize = 13.sp)
                             }
+                            if (target > 1) Text("${st.todayCount}/$target", color = a.textSecondary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                             HabitToggle(vm, h, st, color)
                         }
                     }
@@ -253,7 +258,7 @@ private fun DashboardScreen(vm: AppViewModel, nav: Nav) {
         if (upcoming.isNotEmpty()) {
             SectionHeader("Upcoming reminders") { nav.push(Route.Reminders) }
             AriaCard {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.heightIn(max = 150.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     upcoming.forEach { (r, _) ->
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             Box(Modifier.size(8.dp).clip(CircleShape).background(a.accent))
@@ -301,6 +306,9 @@ fun IconChip(icon: ImageVector, tint: Color? = null, onClick: () -> Unit) {
 @OptIn(ExperimentalLayoutApi::class)
 fun TaskCard(vm: AppViewModel, task: Task, date: String, onPress: () -> Unit) {
     val a = LocalAria.current
+    // Recurring tasks track completion in a separate table, so the `task` arg
+    // doesn't change when toggled — read dataRev so the card still recomposes.
+    vm.dataRev.collectAsState().value
     val done = vm.isTaskDone(task, date)
     val catColor = a.category(task.category)
     val time = Logic.timeRange(task.start_time, task.end_time)
@@ -333,7 +341,7 @@ private fun PlannerScreen(vm: AppViewModel, nav: Nav) {
     vm.dataRev.collectAsState().value
     val a = LocalAria.current
     var selected by rememberSaveable { mutableStateOf(vm.today) }
-    var mode by rememberSaveable { mutableStateOf("list") }
+    var mode by rememberSaveable { mutableStateOf("timeline") }
     val dayTasks = vm.tasksOn(selected)
     val done = dayTasks.count { vm.isTaskDone(it, selected) }
     val marked = vm.markedDates()
@@ -355,7 +363,7 @@ private fun PlannerScreen(vm: AppViewModel, nav: Nav) {
                         AriaProgressBar(if (dayTasks.isNotEmpty()) done.toFloat() / dayTasks.size else 0f)
                     }
                 }
-                Segmented(listOf("list" to "List", "timeline" to "Timeline"), mode) { mode = it }
+                Segmented(listOf("timeline" to "Timeline", "list" to "List"), mode) { mode = it }
             }
             if (dayTasks.isEmpty()) {
                 EmptyState(Icons.Filled.DoneAll, "Nothing planned", "Tap the + button to add your first task for this day.")
