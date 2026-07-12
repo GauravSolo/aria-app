@@ -2,4 +2,6 @@
     <string name="app_name">Aria</string>
     <string name="widget_label">Aria — Today</string>
     <string name="widget_description">Your day at a glance: tasks, water and streaks.</string>
+    <string name="streak_widget_label">Aria — Streak</string>
+    <string name="streak_widget_description">A habit\'s streak calendar, live on your home screen.</string>
 </resources>

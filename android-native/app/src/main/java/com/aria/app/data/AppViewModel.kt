@@ -514,5 +514,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             topStreak = activeHabits().maxOfOrNull { habitStats(it).current } ?: 0,
         )
         runCatching { WidgetStore.push(ctx, snap) }
+        runCatching {
+            StreakStore.push(ctx) { hid ->
+                habits.value.firstOrNull { it.id == hid && it.deleted_at == null }
+                    ?.let { StreakStore.build(it, habitCounts(it.id), today) }
+            }
+        }
     }
 }
