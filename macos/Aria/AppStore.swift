@@ -18,6 +18,7 @@ final class AppStore: ObservableObject {
 
     func load(uid: String) async {
         self.uid = uid
+        await flushPendingWidgetToggles()
         loading = true
         defer { loading = false }
         do {
@@ -199,6 +200,27 @@ final class AppStore: ObservableObject {
         }
     }
 
+    /// Apply task checkboxes tapped on the widget while the app was closed.
+    private func flushPendingWidgetToggles() async {
+        let pending = WidgetBridge.readPending()
+        guard !pending.isEmpty else { return }
+        for p in pending {
+            do {
+                if p.recurrence == "none" {
+                    let payload: [String: AnyJSON] = [
+                        "is_completed": .bool(true), "completed_at": .string(ISO.now()), "updated_at": .string(ISO.now()),
+                    ]
+                    try await Supa.client.from("tasks").update(payload).eq("id", value: p.id).execute()
+                } else {
+                    let row = TaskCompletion(id: newUUID(), userId: uid, taskId: p.id, occurrenceDate: today,
+                                             completedAt: ISO.now(), createdAt: ISO.now(), updatedAt: ISO.now(), deletedAt: nil)
+                    try await Supa.client.from("task_completions").insert(row).execute()
+                }
+            } catch { /* best-effort; stays queued only if we don't clear */ }
+        }
+        WidgetBridge.clearPending()
+    }
+
     // ── Widget ───────────────────────────────────────────────────────────────
     private func publishWidget() {
         let dayTasks = tasksForToday()
@@ -207,6 +229,7 @@ final class AppStore: ObservableObject {
         let snap = WidgetSnapshot(
             generatedAt: ISO.now(),
             nextTaskTitle: pending.first?.title,
+            tasks: pending.prefix(8).map { WidgetTask(id: $0.id, title: $0.title, recurrence: $0.recurrence.rawValue) },
             pendingTasks: pending.count,
             totalTasks: dayTasks.count,
             waterMl: waterToday,

@@ -51,3 +51,4 @@ android-native/local.properties
 android-native/.idea/
 android-native/captures/
 android-native/.kotlin/
+macos/build/
