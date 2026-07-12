@@ -16,6 +16,7 @@ import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
+import androidx.glance.layout.fillMaxHeight
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
@@ -61,10 +62,12 @@ fun CalendarWidgetContent(snap: StreakSnapshot?, emptyHint: String) {
             Text("🔥 ${snap.current}", style = TextStyle(color = ColorProvider(Amber), fontSize = 13.sp, fontWeight = FontWeight.Bold))
         }
         Spacer(GlanceModifier.height(6.dp))
-        // Month grid: one column per week (vertical).
-        Row(modifier = GlanceModifier.fillMaxWidth()) {
+        // Month grid: one column per week (vertical). The grid fills the remaining
+        // height and each week's 7 cells share it equally, so nothing crops when
+        // the widget is resized smaller.
+        Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
             snap.weeks.forEach { week ->
-                Column(modifier = GlanceModifier.defaultWeight()) {
+                Column(modifier = GlanceModifier.defaultWeight().fillMaxHeight()) {
                     for (wd in 0 until 7) {
                         val code = week.getOrNull(wd) ?: -1
                         val c = when (code) {
@@ -72,9 +75,8 @@ fun CalendarWidgetContent(snap: StreakSnapshot?, emptyHint: String) {
                             2 -> MissedC
                             else -> Track
                         }
-                        Box(GlanceModifier.height(17.dp), contentAlignment = Alignment.Center) {
-                            if (code == -1) Spacer(GlanceModifier.size(13.dp))
-                            else Box(GlanceModifier.size(13.dp).cornerRadius(4.dp).background(c)) {}
+                        Box(GlanceModifier.defaultWeight().fillMaxWidth().padding(2.dp)) {
+                            if (code != -1) Box(GlanceModifier.fillMaxSize().cornerRadius(4.dp).background(c)) {}
                         }
                     }
                 }
