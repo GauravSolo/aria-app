@@ -22,6 +22,20 @@ struct ToggleTaskIntent: AppIntent {
         snap.nextTaskTitle = snap.tasks.first?.title
         WidgetBridge.writeOptimistic(snap)
 
+        // Optimistically flip today's cell (3 = today-pending) to done (1) on the task
+        // calendar/streak widget and bump the streak. The app recomputes exactly on open.
+        var cal = WidgetBridge.readCalendar()
+        if let i = cal.tasks.firstIndex(where: { $0.id == taskId }) {
+            var e = cal.tasks[i]
+            var flipped = false
+            for w in e.weeks.indices {
+                for c in e.weeks[w].indices where e.weeks[w][c] == 3 { e.weeks[w][c] = 1; flipped = true }
+            }
+            if flipped { e.current += 1; e.longest = max(e.longest, e.current) }
+            cal.tasks[i] = e
+            WidgetBridge.writeCalendarLocal(cal)
+        }
+
         // Instant sync: write straight to Supabase. If offline / no session, fall back
         // to the pending queue so the app applies it on next launch.
         let uid = WidgetBridge.readAuth()?.userId ?? ""

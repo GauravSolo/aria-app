@@ -170,6 +170,13 @@ enum WidgetBridge {
         return cal
     }
 
+    /// Widget side — persist an optimistic calendar update after a checkbox tap.
+    static func writeCalendarLocal(_ data: CalendarData) {
+        guard let url = ownDir()?.appendingPathComponent(calendarFileName),
+              let bytes = try? JSONEncoder().encode(data) else { return }
+        try? bytes.write(to: url, options: .atomic)
+    }
+
     static func enqueuePending(_ p: PendingToggle) {
         guard let url = ownDir()?.appendingPathComponent(pendingFileName) else { return }
         var arr: [PendingToggle] = []

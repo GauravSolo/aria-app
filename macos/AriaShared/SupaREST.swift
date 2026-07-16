@@ -41,15 +41,20 @@ enum SupaREST {
             return await write(method: "PATCH", path: "tasks?id=eq.\(id)", token: token,
                                body: ["is_completed": true, "completed_at": now, "updated_at": now])
         } else {
+            // Upsert on (task_id, occurrence_date): a prior toggle leaves a soft-deleted
+            // row, and the table has a unique constraint — a plain INSERT would 409. Merge
+            // instead and clear deleted_at so the completion counts.
             let row: [String: Any] = [
-                "id": UUID().uuidString.lowercased(), "user_id": userId, "task_id": id,
-                "occurrence_date": todayKey(), "completed_at": now, "created_at": now, "updated_at": now,
+                "user_id": userId, "task_id": id, "occurrence_date": todayKey(),
+                "completed_at": now, "updated_at": now, "deleted_at": NSNull(),
             ]
-            return await write(method: "POST", path: "task_completions", token: token, body: row)
+            return await write(method: "POST", path: "task_completions?on_conflict=task_id,occurrence_date",
+                               token: token, body: row, prefer: "return=minimal,resolution=merge-duplicates")
         }
     }
 
-    private static func write(method: String, path: String, token: String, body: Any) async -> Bool {
+    private static func write(method: String, path: String, token: String, body: Any,
+                              prefer: String = "return=minimal") async -> Bool {
         guard let url = URL(string: "\(restBase)/\(path)"),
               let data = try? JSONSerialization.data(withJSONObject: body) else { return false }
         var req = URLRequest(url: url)
@@ -57,7 +62,7 @@ enum SupaREST {
         req.setValue(SupaEnv.anonKey, forHTTPHeaderField: "apikey")
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.setValue("return=minimal", forHTTPHeaderField: "Prefer")
+        req.setValue(prefer, forHTTPHeaderField: "Prefer")
         req.httpBody = data
         guard let (_, resp) = try? await URLSession.shared.data(for: req),
               let code = (resp as? HTTPURLResponse)?.statusCode else { return false }

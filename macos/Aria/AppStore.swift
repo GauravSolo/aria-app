@@ -53,19 +53,25 @@ final class AppStore: ObservableObject {
 
     // ── Realtime (live sync across devices + widget) ──────────────────────────
     private var realtimeStarted = false
+    private var realtimeSubs: [RealtimeSubscription] = []
+    private var realtimeChannel: RealtimeChannelV2?
     private var reloadDebounce: _Concurrency.Task<Void, Never>?
 
     /// Subscribe to Postgres changes on the user's tables; coalesce bursts into one reload.
+    /// Callbacks MUST be registered (`onPostgresChange`) before `subscribe()` — the async
+    /// `postgresChange` stream registers lazily on first iteration, which lands after
+    /// subscribe and is silently dropped.
     private func startRealtime() async {
         guard !realtimeStarted else { return }
         realtimeStarted = true
         let channel = Supa.client.channel("aria-\(uid)")
         for table in ["tasks", "task_completions", "habits", "habit_logs", "water_logs", "water_settings", "reminders"] {
-            let stream = channel.postgresChange(AnyAction.self, schema: "public", table: table)
-            _Concurrency.Task { [weak self] in
-                for await _ in stream { self?.scheduleReload() }
+            let sub = channel.onPostgresChange(AnyAction.self, schema: "public", table: table) { [weak self] _ in
+                _Concurrency.Task { @MainActor in self?.scheduleReload() }
             }
+            realtimeSubs.append(sub)
         }
+        realtimeChannel = channel
         await channel.subscribe()
     }
 
@@ -352,6 +358,7 @@ final class AppStore: ObservableObject {
     private func flushPendingWidgetToggles() async {
         let pending = WidgetBridge.readPending()
         guard !pending.isEmpty else { return }
+        var allOK = true
         for p in pending {
             do {
                 if p.recurrence == "none" {
@@ -360,13 +367,16 @@ final class AppStore: ObservableObject {
                     ]
                     try await Supa.client.from("tasks").update(payload).eq("id", value: p.id).execute()
                 } else {
+                    // Upsert on (task_id, occurrence_date): a prior toggle leaves a soft-deleted
+                    // row and the table is unique — a plain insert would 409. Merge + clear delete.
                     let row = TaskCompletion(id: newUUID(), userId: uid, taskId: p.id, occurrenceDate: today,
                                              completedAt: ISO.now(), createdAt: ISO.now(), updatedAt: ISO.now(), deletedAt: nil)
-                    try await Supa.client.from("task_completions").insert(row).execute()
+                    try await Supa.client.from("task_completions")
+                        .upsert(row, onConflict: "task_id,occurrence_date").execute()
                 }
-            } catch { /* best-effort; stays queued only if we don't clear */ }
+            } catch { allOK = false }
         }
-        WidgetBridge.clearPending()
+        if allOK { WidgetBridge.clearPending() }
     }
 
     // ── Widget ───────────────────────────────────────────────────────────────
