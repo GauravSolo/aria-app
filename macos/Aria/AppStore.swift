@@ -64,14 +64,24 @@ final class AppStore: ObservableObject {
     // ── Derived (today) ──────────────────────────────────────────────────────
     var today: String { DayKey.today() }
 
-    func tasksForToday() -> [Task] {
-        tasks.filter { $0.deletedAt == nil && taskOccursOn($0, today) }
-            .sorted { ($0.startTime ?? "") < ($1.startTime ?? "") }
+    func tasksForToday() -> [Task] { tasksOn(today) }
+
+    /// Tasks occurring on a day, timed first (by start time), untimed last.
+    func tasksOn(_ date: String) -> [Task] {
+        tasks.filter { $0.deletedAt == nil && taskOccursOn($0, date) }
+            .sorted { timeKey($0) < timeKey($1) }
     }
 
-    func isTaskDone(_ t: Task) -> Bool {
+    private func timeKey(_ t: Task) -> String {
+        guard let st = t.startTime else { return "~" }
+        return String(st.suffix(from: st.index(st.startIndex, offsetBy: min(11, st.count)))).prefix(5).description
+    }
+
+    func isTaskDone(_ t: Task) -> Bool { isTaskDone(t, on: today) }
+
+    func isTaskDone(_ t: Task, on date: String) -> Bool {
         if t.recurrence == .none { return t.isCompleted }
-        return completions.contains { $0.deletedAt == nil && $0.taskId == t.id && $0.occurrenceDate == today }
+        return completions.contains { $0.deletedAt == nil && $0.taskId == t.id && $0.occurrenceDate == date }
     }
 
     var activeHabits: [Habit] {
@@ -90,7 +100,9 @@ final class AppStore: ObservableObject {
     var waterToday: Int { waterTotal(waterLogs, on: today) }
 
     // ── Mutations (optimistic: update local state now, persist in background) ────
-    func toggleTask(_ t: Task) {
+    func toggleTask(_ t: Task) { toggleTask(t, on: today) }
+
+    func toggleTask(_ t: Task, on date: String) {
         let now = ISO.now()
         if t.recurrence == .none {
             let done = !t.isCompleted
@@ -106,14 +118,14 @@ final class AppStore: ObservableObject {
             ]
             push { _ = try await Supa.client.from("tasks").update(payload).eq("id", value: id).execute() }
         } else {
-            toggleCompletion(t)
+            toggleCompletion(t, on: date)
             publishWidget()
         }
     }
 
-    private func toggleCompletion(_ t: Task) {
+    private func toggleCompletion(_ t: Task, on date: String) {
         let now = ISO.now()
-        if let i = completions.firstIndex(where: { $0.taskId == t.id && $0.occurrenceDate == today }) {
+        if let i = completions.firstIndex(where: { $0.taskId == t.id && $0.occurrenceDate == date }) {
             let nowDeleted = completions[i].deletedAt == nil
             completions[i].deletedAt = nowDeleted ? now : nil
             let cid = completions[i].id
@@ -123,7 +135,7 @@ final class AppStore: ObservableObject {
             ]
             push { _ = try await Supa.client.from("task_completions").update(payload).eq("id", value: cid).execute() }
         } else {
-            let row = TaskCompletion(id: newUUID(), userId: uid, taskId: t.id, occurrenceDate: today,
+            let row = TaskCompletion(id: newUUID(), userId: uid, taskId: t.id, occurrenceDate: date,
                                      completedAt: now, createdAt: now, updatedAt: now, deletedAt: nil)
             completions.append(row)
             push { _ = try await Supa.client.from("task_completions").insert(row).execute() }
@@ -131,11 +143,12 @@ final class AppStore: ObservableObject {
     }
 
     func addTask(title: String, category: Category, priority: Priority, dueDate: String,
-                 startTime: String?, endTime: String?, recurrence: TaskRecurrence, days: [Int]) {
+                 startTime: String?, endTime: String?, recurrence: TaskRecurrence, days: [Int],
+                 interval: Int = 1, until: String? = nil) {
         let row = Task(id: newUUID(), userId: uid, title: title, description: nil,
                        category: category, priority: priority, startTime: startTime, endTime: endTime,
-                       dueDate: dueDate, recurrence: recurrence, recurrenceInterval: 1,
-                       recurrenceDays: days, recurrenceEndDate: nil, isCompleted: false,
+                       dueDate: dueDate, recurrence: recurrence, recurrenceInterval: max(1, interval),
+                       recurrenceDays: days, recurrenceEndDate: until, isCompleted: false,
                        completedAt: nil, sortOrder: 0, createdAt: ISO.now(), updatedAt: ISO.now(), deletedAt: nil)
         tasks.append(row)
         _Concurrency.Task {
@@ -216,11 +229,13 @@ final class AppStore: ObservableObject {
     }
 
     func updateTask(_ existing: Task, title: String, category: Category, priority: Priority, dueDate: String,
-                    startTime: String?, endTime: String?, recurrence: TaskRecurrence, days: [Int]) {
+                    startTime: String?, endTime: String?, recurrence: TaskRecurrence, days: [Int],
+                    interval: Int = 1, until: String? = nil) {
         guard let i = tasks.firstIndex(where: { $0.id == existing.id }) else { return }
         var t = tasks[i]
         t.title = title; t.category = category; t.priority = priority; t.dueDate = dueDate
         t.startTime = startTime; t.endTime = endTime; t.recurrence = recurrence
+        t.recurrenceInterval = max(1, interval); t.recurrenceEndDate = until
         t.recurrenceDays = recurrence == .weekly ? days : []; t.updatedAt = ISO.now()
         tasks[i] = t
         let row = t

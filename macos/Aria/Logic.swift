@@ -294,3 +294,12 @@ func reminderNextFire(_ r: Reminder, now: Date = Date()) -> Date? {
         return nil
     }
 }
+
+enum Fmt {
+    static func weekdayShort(_ d: Date) -> String { f("EEE", d) }
+    static func dayNum(_ d: Date) -> String { f("d", d) }
+    static func medium(_ d: Date) -> String { f("MMM d", d) }
+    private static func f(_ fmt: String, _ d: Date) -> String {
+        let x = DateFormatter(); x.dateFormat = fmt; return x.string(from: d)
+    }
+}

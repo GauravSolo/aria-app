@@ -19,7 +19,7 @@ struct HabitsView: View {
                                 HStack(spacing: 12) {
                                     if s.scheduledToday {
                                         Button { store.toggleHabit(h) } label: {
-                                            CheckCircle(done: s.doneToday, color: Brand.category(h.category))
+                                            CheckCircle(done: s.doneToday, color: habitColor(h))
                                         }.buttonStyle(.plain)
                                     } else {
                                         Image(systemName: "moon.zzz").foregroundStyle(.secondary)
@@ -63,6 +63,13 @@ struct HabitsView: View {
         }
     }
 
+    private func habitColor(_ h: Habit) -> Color {
+        if let hex = h.color, let v = UInt(hex.replacingOccurrences(of: "#", with: ""), radix: 16) {
+            return Color(hex: v)
+        }
+        return Brand.category(h.category)
+    }
+
     private func miniStat(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading) {
             Text(value).font(.title3.weight(.semibold))
@@ -89,6 +96,9 @@ struct HabitForm: View {
     @State private var target = 1
     @State private var days: Set<Int> = []
     @State private var notes = ""
+    @State private var color: String? = nil
+
+    private let palette = ["6366F1", "8B5CF6", "3B82F6", "10B981", "F59E0B", "EF4444"]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -104,6 +114,17 @@ struct HabitForm: View {
             }.pickerStyle(.segmented)
             if frequency != .daily { WeekdayRow(selected: $days) }
             Stepper("Target per day: \(target)", value: $target, in: 1...50)
+            HStack(spacing: 10) {
+                Text("Color").font(.subheadline)
+                ForEach(palette, id: \.self) { hex in
+                    let on = color == hex
+                    Circle()
+                        .fill(Color(hex: UInt(hex, radix: 16) ?? 0x6366F1))
+                        .frame(width: 24, height: 24)
+                        .overlay(Circle().stroke(.primary, lineWidth: on ? 2 : 0))
+                        .onTapGesture { color = hex }
+                }
+            }
             TextField("Notes (optional)", text: $notes).textFieldStyle(.roundedBorder)
 
             HStack {
@@ -124,6 +145,7 @@ struct HabitForm: View {
             guard let e = existing else { return }
             name = e.name; category = e.category; frequency = e.frequency
             target = max(1, e.targetCount); days = Set(e.customDays); notes = e.notes ?? ""
+            color = e.color?.replacingOccurrences(of: "#", with: "")
         }
     }
 
@@ -131,9 +153,9 @@ struct HabitForm: View {
         let d = Array(days).sorted()
         if let e = existing {
             store.updateHabit(e, name: name, category: category, frequency: frequency,
-                              target: target, days: d, color: e.color, notes: notes.isEmpty ? nil : notes)
+                              target: target, days: d, color: color, notes: notes.isEmpty ? nil : notes)
         } else {
-            store.addHabit(name: name, category: category, frequency: frequency, target: target, days: d, color: nil)
+            store.addHabit(name: name, category: category, frequency: frequency, target: target, days: d, color: color)
         }
         dismiss()
     }
