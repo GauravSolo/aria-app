@@ -193,6 +193,51 @@ final class AppStore: ObservableObject {
         }
     }
 
+    func updateHabit(_ existing: Habit, name: String, category: Category, frequency: Frequency,
+                     target: Int, days: [Int], color: String?, notes: String?) {
+        guard let i = habits.firstIndex(where: { $0.id == existing.id }) else { return }
+        var h = habits[i]
+        h.name = name; h.category = category; h.frequency = frequency; h.targetCount = max(1, target)
+        h.customDays = frequency == .daily ? [] : days; h.color = color; h.notes = notes; h.updatedAt = ISO.now()
+        habits[i] = h
+        let row = h
+        push { _ = try await Supa.client.from("habits").update(row).eq("id", value: row.id).execute() }
+        publishWidget()
+    }
+
+    func deleteHabit(_ h: Habit) {
+        guard let i = habits.firstIndex(where: { $0.id == h.id }) else { return }
+        let now = ISO.now()
+        habits[i].deletedAt = now
+        let id = h.id
+        let payload: [String: AnyJSON] = ["deleted_at": .string(now), "updated_at": .string(now)]
+        push { _ = try await Supa.client.from("habits").update(payload).eq("id", value: id).execute() }
+        publishWidget()
+    }
+
+    func updateTask(_ existing: Task, title: String, category: Category, priority: Priority, dueDate: String,
+                    startTime: String?, endTime: String?, recurrence: TaskRecurrence, days: [Int]) {
+        guard let i = tasks.firstIndex(where: { $0.id == existing.id }) else { return }
+        var t = tasks[i]
+        t.title = title; t.category = category; t.priority = priority; t.dueDate = dueDate
+        t.startTime = startTime; t.endTime = endTime; t.recurrence = recurrence
+        t.recurrenceDays = recurrence == .weekly ? days : []; t.updatedAt = ISO.now()
+        tasks[i] = t
+        let row = t
+        push { _ = try await Supa.client.from("tasks").update(row).eq("id", value: row.id).execute() }
+        publishWidget()
+    }
+
+    func deleteTask(_ t: Task) {
+        guard let i = tasks.firstIndex(where: { $0.id == t.id }) else { return }
+        let now = ISO.now()
+        tasks[i].deletedAt = now
+        let id = t.id
+        let payload: [String: AnyJSON] = ["deleted_at": .string(now), "updated_at": .string(now)]
+        push { _ = try await Supa.client.from("tasks").update(payload).eq("id", value: id).execute() }
+        publishWidget()
+    }
+
     func logWater(_ ml: Int) {
         let row = WaterLog(id: newUUID(), userId: uid, logDate: today, amountMl: ml,
                            loggedAt: ISO.now(), createdAt: ISO.now(), updatedAt: ISO.now(), deletedAt: nil)

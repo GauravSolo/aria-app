@@ -3,6 +3,8 @@ import SwiftUI
 struct HabitsView: View {
     @EnvironmentObject var store: AppStore
     @State private var showAdd = false
+    @State private var editing: Habit?
+    @State private var detail: Habit?
 
     var body: some View {
         ScrollView {
@@ -28,6 +30,10 @@ struct HabitsView: View {
                                     }
                                     Spacer()
                                     Label("\(s.current)", systemImage: "flame").foregroundStyle(Brand.amber)
+                                    Button { detail = h } label: { Image(systemName: "calendar") }.buttonStyle(.plain)
+                                    Button { editing = h } label: { Image(systemName: "pencil") }.buttonStyle(.plain)
+                                    Button { store.deleteHabit(h) } label: { Image(systemName: "trash") }
+                                        .buttonStyle(.plain).foregroundStyle(Brand.red)
                                 }
                                 HStack(spacing: 16) {
                                     miniStat("Longest", "\(s.longest)")
@@ -47,7 +53,14 @@ struct HabitsView: View {
                 Button { showAdd = true } label: { Label("Add habit", systemImage: "plus") }
             }
         }
-        .sheet(isPresented: $showAdd) { AddHabitSheet().environmentObject(store) }
+        .sheet(isPresented: $showAdd) { HabitForm(existing: nil).environmentObject(store) }
+        .sheet(item: $editing) { HabitForm(existing: $0).environmentObject(store) }
+        .sheet(item: $detail) { h in
+            NavigationStack {
+                HabitDetailView(habit: store.habits.first { $0.id == h.id } ?? h).environmentObject(store)
+            }
+            .frame(minWidth: 460, minHeight: 560)
+        }
     }
 
     private func miniStat(_ label: String, _ value: String) -> some View {
@@ -65,19 +78,21 @@ struct HabitsView: View {
     }
 }
 
-struct AddHabitSheet: View {
+struct HabitForm: View {
     @EnvironmentObject var store: AppStore
     @Environment(\.dismiss) private var dismiss
+    var existing: Habit?
 
     @State private var name = ""
     @State private var category: Category = .health
     @State private var frequency: Frequency = .daily
     @State private var target = 1
     @State private var days: Set<Int> = []
+    @State private var notes = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("New habit").font(.title2.weight(.bold))
+            Text(existing == nil ? "New habit" : "Edit habit").font(.title2.weight(.bold))
             TextField("Habit name", text: $name).textFieldStyle(.roundedBorder)
             Picker("Category", selection: $category) {
                 ForEach(Category.allCases) { Text($0.label).tag($0) }
@@ -89,18 +104,37 @@ struct AddHabitSheet: View {
             }.pickerStyle(.segmented)
             if frequency != .daily { WeekdayRow(selected: $days) }
             Stepper("Target per day: \(target)", value: $target, in: 1...50)
+            TextField("Notes (optional)", text: $notes).textFieldStyle(.roundedBorder)
 
             HStack {
+                if existing != nil {
+                    Button(role: .destructive) {
+                        if let e = existing { store.deleteHabit(e) }
+                        dismiss()
+                    } label: { Label("Delete", systemImage: "trash") }
+                }
                 Button("Cancel") { dismiss() }
                 Spacer()
-                Button("Save") {
-                    store.addHabit(name: name, category: category, frequency: frequency,
-                                   target: target, days: Array(days).sorted(), color: nil)
-                    dismiss()
-                }.keyboardShortcut(.defaultAction).disabled(name.isEmpty)
+                Button("Save") { save() }.keyboardShortcut(.defaultAction).disabled(name.isEmpty)
             }
         }
         .padding(20)
-        .frame(width: 420)
+        .frame(width: 440)
+        .onAppear {
+            guard let e = existing else { return }
+            name = e.name; category = e.category; frequency = e.frequency
+            target = max(1, e.targetCount); days = Set(e.customDays); notes = e.notes ?? ""
+        }
+    }
+
+    private func save() {
+        let d = Array(days).sorted()
+        if let e = existing {
+            store.updateHabit(e, name: name, category: category, frequency: frequency,
+                              target: target, days: d, color: e.color, notes: notes.isEmpty ? nil : notes)
+        } else {
+            store.addHabit(name: name, category: category, frequency: frequency, target: target, days: d, color: nil)
+        }
+        dismiss()
     }
 }

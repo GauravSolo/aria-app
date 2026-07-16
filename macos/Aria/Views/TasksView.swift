@@ -3,6 +3,7 @@ import SwiftUI
 struct TasksView: View {
     @EnvironmentObject var store: AppStore
     @State private var showAdd = false
+    @State private var editing: Task?
 
     var body: some View {
         let dayTasks = store.tasksForToday()
@@ -14,6 +15,10 @@ struct TasksView: View {
                     let sorted = dayTasks.sorted { Bool2Int(store.isTaskDone($0)) < Bool2Int(store.isTaskDone($1)) }
                     ForEach(sorted) { t in
                         TaskRow(task: t, done: store.isTaskDone(t)) { store.toggleTask(t) }
+                            .contextMenu {
+                                Button("Edit") { editing = t }
+                                Button("Delete", role: .destructive) { store.deleteTask(t) }
+                            }
                     }
                 }
             }
@@ -25,15 +30,17 @@ struct TasksView: View {
                 Button { showAdd = true } label: { Label("Add task", systemImage: "plus") }
             }
         }
-        .sheet(isPresented: $showAdd) { AddTaskSheet().environmentObject(store) }
+        .sheet(isPresented: $showAdd) { TaskForm(existing: nil).environmentObject(store) }
+        .sheet(item: $editing) { TaskForm(existing: $0).environmentObject(store) }
     }
 }
 
 private func Bool2Int(_ b: Bool) -> Int { b ? 1 : 0 }
 
-struct AddTaskSheet: View {
+struct TaskForm: View {
     @EnvironmentObject var store: AppStore
     @Environment(\.dismiss) private var dismiss
+    var existing: Task?
 
     @State private var title = ""
     @State private var category: Category = .other
@@ -46,7 +53,7 @@ struct AddTaskSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("New task").font(.title2.weight(.bold))
+            Text(existing == nil ? "New task" : "Edit task").font(.title2.weight(.bold))
             TextField("Title", text: $title).textFieldStyle(.roundedBorder)
             HStack {
                 Picker("Category", selection: $category) {
@@ -68,23 +75,47 @@ struct AddTaskSheet: View {
             if recurrence == .weekly { WeekdayRow(selected: $days) }
 
             HStack {
+                if existing != nil {
+                    Button(role: .destructive) {
+                        if let e = existing { store.deleteTask(e) }
+                        dismiss()
+                    } label: { Label("Delete", systemImage: "trash") }
+                }
                 Button("Cancel") { dismiss() }
                 Spacer()
                 Button("Save") { save() }.keyboardShortcut(.defaultAction).disabled(title.isEmpty)
             }
         }
         .padding(20)
-        .frame(width: 420)
+        .frame(width: 440)
+        .onAppear(perform: loadExisting)
     }
 
     private func save() {
         let dayKey = DayKey.of(due)
-        store.addTask(
-            title: title, category: category, priority: priority, dueDate: dayKey,
-            startTime: hasStart ? isoFrom(day: due, time: start) : nil,
-            endTime: nil, recurrence: recurrence, days: Array(days).sorted()
-        )
+        let startISO = hasStart ? isoFrom(day: due, time: start) : nil
+        let d = Array(days).sorted()
+        if let e = existing {
+            store.updateTask(e, title: title, category: category, priority: priority, dueDate: dayKey,
+                             startTime: startISO, endTime: nil, recurrence: recurrence, days: d)
+        } else {
+            store.addTask(title: title, category: category, priority: priority, dueDate: dayKey,
+                          startTime: startISO, endTime: nil, recurrence: recurrence, days: d)
+        }
         dismiss()
+    }
+
+    private func loadExisting() {
+        guard let e = existing else { return }
+        title = e.title; category = e.category; priority = e.priority
+        due = Cal.date(e.dueDate ?? DayKey.today())
+        recurrence = e.recurrence; days = Set(e.recurrenceDays)
+        if let st = e.startTime {
+            let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let d = f.date(from: st) ?? ISO8601DateFormatter().date(from: st) {
+                hasStart = true; start = d
+            }
+        }
     }
 }
 
