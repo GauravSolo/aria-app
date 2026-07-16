@@ -67,5 +67,7 @@ struct CheckCircle: View {
                 .frame(width: 24, height: 24)
             if done { Image(systemName: "checkmark").font(.system(size: 12, weight: .bold)).foregroundStyle(.white) }
         }
+        .frame(width: 26, height: 26)
+        .contentShape(Rectangle())
     }
 }
