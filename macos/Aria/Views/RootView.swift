@@ -20,7 +20,7 @@ struct RootView: View {
             }
         }
         .preferredColorScheme((ThemeMode(rawValue: themeMode) ?? .system).colorScheme)
-        .task { await auth.bootstrap() }
+        .task { Notifier.requestAuth(); await auth.bootstrap() }
         .task(id: auth.userId) {
             if let uid = auth.userId { await store.load(uid: uid) }
         }
@@ -54,7 +54,7 @@ enum ThemeMode: String, CaseIterable, Identifiable {
 }
 
 enum AppSection: String, CaseIterable, Identifiable {
-    case today, planner, habits, water, profile
+    case today, planner, habits, water, reminders, profile
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -62,6 +62,7 @@ enum AppSection: String, CaseIterable, Identifiable {
         case .planner: return "Planner"
         case .habits: return "Habits"
         case .water: return "Water"
+        case .reminders: return "Reminders"
         case .profile: return "Profile"
         }
     }
@@ -71,6 +72,7 @@ enum AppSection: String, CaseIterable, Identifiable {
         case .planner: return "checklist"
         case .habits: return "flame"
         case .water: return "drop"
+        case .reminders: return "bell"
         case .profile: return "person.crop.circle"
         }
     }
@@ -103,6 +105,7 @@ struct MainView: View {
             case .planner: TasksView()
             case .habits: HabitsView()
             case .water: WaterView()
+            case .reminders: RemindersView()
             case .profile: ProfileView()
             }
         }

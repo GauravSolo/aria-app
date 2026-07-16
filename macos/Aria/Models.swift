@@ -105,6 +105,40 @@ struct WaterSettings: Codable, Equatable {
     }
 }
 
+struct Reminder: Codable, Identifiable, Equatable {
+    var id: String
+    var userId: String
+    var title: String
+    var body: String?
+    var kind: ReminderKind
+    var refId: String?
+    var `repeat`: ReminderRepeat
+    var repeatDays: [Int]
+    var intervalMin: Int?
+    var timeOfDay: String?
+    var nextTriggerAt: String?
+    var isEnabled: Bool
+    var snoozeUntil: String?
+    var localNotificationId: String?
+    var createdAt: String
+    var updatedAt: String
+    var deletedAt: String?
+}
+
+struct NotificationHistory: Codable, Identifiable, Equatable {
+    var id: String
+    var userId: String
+    var reminderId: String?
+    var title: String
+    var body: String?
+    var kind: ReminderKind
+    var firedAt: String
+    var status: NotifStatus
+    var createdAt: String
+    var updatedAt: String
+    var deletedAt: String?
+}
+
 struct WaterLog: Codable, Identifiable, Equatable {
     var id: String
     var userId: String

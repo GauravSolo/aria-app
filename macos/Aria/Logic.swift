@@ -219,3 +219,78 @@ func taskStreaks(_ t: Task, done: Set<String>, today: String = DayKey.today()) -
     }
     return (run, longest)
 }
+
+// ── Reminders ─────────────────────────────────────────────────────────────────
+private let weekdayShort = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+
+func reminderSummary(_ r: Reminder) -> String {
+    switch r.repeat {
+    case .once:
+        if let t = r.nextTriggerAt { return fmtDateTime(t) }
+        return "One-time"
+    case .daily:
+        return "Every day" + (r.timeOfDay.map { " · " + fmtTime($0) } ?? "")
+    case .weekly:
+        let days = r.repeatDays.sorted().map { weekdayShort[$0] }.joined(separator: ", ")
+        return (days.isEmpty ? "Weekly" : days) + (r.timeOfDay.map { " · " + fmtTime($0) } ?? "")
+    case .interval:
+        return "Every \(r.intervalMin ?? 0) min"
+    }
+}
+
+func fmtTime(_ hm: String) -> String {
+    let parts = hm.split(separator: ":")
+    let h = Int(parts.first ?? "0") ?? 0
+    let m = parts.count > 1 ? (Int(parts[1]) ?? 0) : 0
+    let ampm = h < 12 ? "AM" : "PM"
+    let h12 = h == 0 ? 12 : (h > 12 ? h - 12 : h)
+    return String(format: "%d:%02d %@", h12, m, ampm)
+}
+
+func fmtDateTime(_ iso: String) -> String {
+    let f = ISO8601DateFormatter()
+    f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    let d = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso) ?? Date()
+    let out = DateFormatter()
+    out.dateFormat = "MMM d · h:mm a"
+    return out.string(from: d)
+}
+
+/// Next fire Date for scheduling a local notification (nil = don't schedule).
+func reminderNextFire(_ r: Reminder, now: Date = Date()) -> Date? {
+    guard r.isEnabled, r.deletedAt == nil else { return nil }
+    let cal = Cal.calendar
+    func hm(_ s: String?) -> (Int, Int) {
+        let p = (s ?? "9:00").split(separator: ":")
+        return (Int(p.first ?? "9") ?? 9, p.count > 1 ? (Int(p[1]) ?? 0) : 0)
+    }
+    switch r.repeat {
+    case .once:
+        guard let iso = r.nextTriggerAt else { return nil }
+        let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let d = f.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
+        return (d.map { $0 > now } == true) ? d : nil
+    case .interval:
+        let m = max(15, r.intervalMin ?? 60)
+        return now.addingTimeInterval(Double(m) * 60)
+    case .daily:
+        let (h, m) = hm(r.timeOfDay)
+        var comps = cal.dateComponents([.year, .month, .day], from: now)
+        comps.hour = h; comps.minute = m
+        var fire = cal.date(from: comps)!
+        if fire <= now { fire = cal.date(byAdding: .day, value: 1, to: fire)! }
+        return fire
+    case .weekly:
+        let (h, m) = hm(r.timeOfDay)
+        let days = r.repeatDays.isEmpty ? [cal.component(.weekday, from: now) - 1] : r.repeatDays
+        for offset in 0...7 {
+            let day = cal.date(byAdding: .day, value: offset, to: now)!
+            if days.contains(cal.component(.weekday, from: day) - 1) {
+                var comps = cal.dateComponents([.year, .month, .day], from: day)
+                comps.hour = h; comps.minute = m
+                if let fire = cal.date(from: comps), fire > now { return fire }
+            }
+        }
+        return nil
+    }
+}

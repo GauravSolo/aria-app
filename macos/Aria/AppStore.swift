@@ -11,13 +11,14 @@ final class AppStore: ObservableObject {
     @Published var habitLogs: [HabitLog] = []
     @Published var waterLogs: [WaterLog] = []
     @Published var water: WaterSettings = .defaults("")
+    @Published var reminders: [Reminder] = []
+    @Published var notifications: [NotificationHistory] = []
     @Published var loading = false
     @Published var lastError: String?
 
     private var uid: String = ""
 
     func load(uid: String) async {
-        print("ARIA load() start")
         self.uid = uid
         await flushPendingWidgetToggles()
         loading = true
@@ -34,10 +35,21 @@ final class AppStore: ObservableObject {
             habitLogs = try await hl
             waterLogs = try await wl
             water = (try? await fetchWater()) ?? .defaults(uid)
+            reminders = (try? await fetch("reminders")) ?? []
+            notifications = (try? await fetch("notification_history")) ?? []
             publishWidget()
+            Notifier.reschedule(activeReminders)
         } catch {
             lastError = error.localizedDescription
         }
+    }
+
+    var activeReminders: [Reminder] {
+        reminders.filter { $0.deletedAt == nil }.sorted { $0.createdAt < $1.createdAt }
+    }
+
+    var recentNotifications: [NotificationHistory] {
+        notifications.filter { $0.deletedAt == nil }.sorted { $0.firedAt > $1.firedAt }
     }
 
     private func fetch<T: Decodable>(_ table: String) async throws -> [T] {
@@ -80,12 +92,10 @@ final class AppStore: ObservableObject {
     // ── Mutations (optimistic: update local state now, persist in background) ────
     func toggleTask(_ t: Task) {
         let now = ISO.now()
-        print("ARIA toggleTask id=\(t.id) recur=\(t.recurrence.rawValue) done=\(t.isCompleted)")
         if t.recurrence == .none {
             let done = !t.isCompleted
-            guard let i = tasks.firstIndex(where: { $0.id == t.id }) else { print("ARIA toggleTask: index NOT found"); return }
+            guard let i = tasks.firstIndex(where: { $0.id == t.id }) else { return }
             tasks[i].isCompleted = done
-            print("ARIA toggleTask: set isCompleted=\(done) at \(i)")
             tasks[i].completedAt = done ? now : nil
             publishWidget()
             let id = t.id
@@ -142,7 +152,6 @@ final class AppStore: ObservableObject {
 
     func setHabitCount(_ h: Habit, count: Int) {
         let now = ISO.now()
-        print("ARIA setHabitCount habit=\(h.id) count=\(count)")
         if let i = habitLogs.firstIndex(where: { $0.habitId == h.id && $0.logDate == today }) {
             let logId = habitLogs[i].id
             if count <= 0 {
@@ -200,6 +209,49 @@ final class AppStore: ObservableObject {
             do { try await Supa.client.from("water_settings").upsert(s).execute(); publishWidget() }
             catch { lastError = error.localizedDescription }
         }
+    }
+
+    // ── Reminders ────────────────────────────────────────────────────────────
+    func saveReminder(_ existing: Reminder?, title: String, body: String?, repeatMode: ReminderRepeat,
+                      repeatDays: [Int], intervalMin: Int?, timeOfDay: String?, nextTriggerAt: String?) {
+        let now = ISO.now()
+        if let e = existing, let i = reminders.firstIndex(where: { $0.id == e.id }) {
+            var r = reminders[i]
+            r.title = title; r.body = body; r.repeat = repeatMode; r.repeatDays = repeatDays
+            r.intervalMin = intervalMin; r.timeOfDay = timeOfDay; r.nextTriggerAt = nextTriggerAt
+            r.snoozeUntil = nil; r.updatedAt = now
+            reminders[i] = r
+            let row = r
+            push { _ = try await Supa.client.from("reminders").update(row).eq("id", value: row.id).execute() }
+        } else {
+            let r = Reminder(id: newUUID(), userId: uid, title: title, body: body, kind: .custom, refId: nil,
+                             repeat: repeatMode, repeatDays: repeatDays, intervalMin: intervalMin, timeOfDay: timeOfDay,
+                             nextTriggerAt: nextTriggerAt, isEnabled: true, snoozeUntil: nil, localNotificationId: nil,
+                             createdAt: now, updatedAt: now, deletedAt: nil)
+            reminders.append(r)
+            let row = r
+            push { _ = try await Supa.client.from("reminders").insert(row).execute() }
+        }
+        Notifier.reschedule(activeReminders)
+    }
+
+    func toggleReminder(_ r: Reminder) {
+        guard let i = reminders.firstIndex(where: { $0.id == r.id }) else { return }
+        reminders[i].isEnabled.toggle()
+        reminders[i].updatedAt = ISO.now()
+        let row = reminders[i]
+        push { _ = try await Supa.client.from("reminders").update(row).eq("id", value: row.id).execute() }
+        Notifier.reschedule(activeReminders)
+    }
+
+    func deleteReminder(_ r: Reminder) {
+        guard let i = reminders.firstIndex(where: { $0.id == r.id }) else { return }
+        let now = ISO.now()
+        reminders[i].deletedAt = now
+        let id = r.id
+        let payload: [String: AnyJSON] = ["deleted_at": .string(now), "updated_at": .string(now)]
+        push { _ = try await Supa.client.from("reminders").update(payload).eq("id", value: id).execute() }
+        Notifier.reschedule(activeReminders)
     }
 
     /// Apply task checkboxes tapped on the widget while the app was closed.
