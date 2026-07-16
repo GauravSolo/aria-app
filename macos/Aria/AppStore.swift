@@ -23,6 +23,13 @@ final class AppStore: ObservableObject {
         await flushPendingWidgetToggles()
         loading = true
         defer { loading = false }
+        await reloadData()
+        await startRealtime()
+    }
+
+    /// Fetch all rows from Supabase and republish. Safe to call repeatedly (used by the
+    /// realtime subscription when another device / the widget changes data).
+    private func reloadData() async {
         do {
             async let t: [Task] = fetch("tasks")
             async let c: [TaskCompletion] = fetch("task_completions")
@@ -41,6 +48,33 @@ final class AppStore: ObservableObject {
             Notifier.reschedule(activeReminders)
         } catch {
             lastError = error.localizedDescription
+        }
+    }
+
+    // ── Realtime (live sync across devices + widget) ──────────────────────────
+    private var realtimeStarted = false
+    private var reloadDebounce: _Concurrency.Task<Void, Never>?
+
+    /// Subscribe to Postgres changes on the user's tables; coalesce bursts into one reload.
+    private func startRealtime() async {
+        guard !realtimeStarted else { return }
+        realtimeStarted = true
+        let channel = Supa.client.channel("aria-\(uid)")
+        for table in ["tasks", "task_completions", "habits", "habit_logs", "water_logs", "water_settings", "reminders"] {
+            let stream = channel.postgresChange(AnyAction.self, schema: "public", table: table)
+            _Concurrency.Task { [weak self] in
+                for await _ in stream { self?.scheduleReload() }
+            }
+        }
+        await channel.subscribe()
+    }
+
+    private func scheduleReload() {
+        reloadDebounce?.cancel()
+        reloadDebounce = _Concurrency.Task { [weak self] in
+            try? await _Concurrency.Task.sleep(nanoseconds: 700_000_000)
+            if _Concurrency.Task.isCancelled { return }
+            await self?.reloadData()
         }
     }
 

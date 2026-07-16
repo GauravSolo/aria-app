@@ -51,10 +51,18 @@ final class AuthModel: ObservableObject {
             userId = session.user.id.uuidString.lowercased()
             email = session.user.email
             status = .signedIn
+            // Stash the session so the widget can sync checkbox taps to Supabase directly.
+            WidgetBridge.writeAuth(WidgetAuth(
+                accessToken: session.accessToken,
+                refreshToken: session.refreshToken,
+                userId: userId ?? "",
+                expiresAt: session.expiresAt
+            ))
         } else {
             userId = nil
             email = nil
             status = .signedOut
+            WidgetBridge.clearAuth()
         }
     }
 

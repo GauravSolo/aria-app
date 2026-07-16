@@ -69,6 +69,8 @@ targets:
       path: AriaWidget/AriaWidget.entitlements
       properties:
         com.apple.security.app-sandbox: true
+        # Widget checkbox intents write directly to Supabase over HTTPS (instant sync).
+        com.apple.security.network.client: true
 
 schemes:
   Aria:

@@ -12,6 +12,16 @@ let ariaWidgetBundleID = "com.aria.planner.AriaWidget"
 private let snapshotFileName = "widget-snapshot.json"
 private let pendingFileName = "widget-pending.json"
 private let calendarFileName = "widget-calendar.json"
+private let authFileName = "widget-auth.json"
+
+/// Supabase session tokens stashed for the widget so its checkbox intents can write
+/// to Supabase directly (instant sync) without waiting for the app to open.
+struct WidgetAuth: Codable {
+    var accessToken: String
+    var refreshToken: String
+    var userId: String
+    var expiresAt: Double   // unix seconds
+}
 
 /// A habit or recurring task rendered as a month calendar for the calendar widgets.
 /// `weeks` cells: -1 blank · 0 off · 1 done · 2 missed · 3 today-pending · 4 future.
@@ -102,6 +112,18 @@ enum WidgetBridge {
         try? FileManager.default.removeItem(at: url)
     }
 
+    /// App side — stash the current Supabase session for the widget to reuse.
+    static func writeAuth(_ a: WidgetAuth) {
+        guard let url = widgetContainerDir()?.appendingPathComponent(authFileName),
+              let data = try? JSONEncoder().encode(a) else { return }
+        try? data.write(to: url, options: .atomic)
+    }
+
+    static func clearAuth() {
+        guard let url = widgetContainerDir()?.appendingPathComponent(authFileName) else { return }
+        try? FileManager.default.removeItem(at: url)
+    }
+
     // ── Widget side ─────────────────────────────────────────────────────────
     static func read() -> WidgetSnapshot {
         guard let url = ownDir()?.appendingPathComponent(snapshotFileName),
@@ -115,6 +137,20 @@ enum WidgetBridge {
     static func writeOptimistic(_ snap: WidgetSnapshot) {
         guard let url = ownDir()?.appendingPathComponent(snapshotFileName),
               let data = try? JSONEncoder().encode(snap) else { return }
+        try? data.write(to: url, options: .atomic)
+    }
+
+    /// Widget side — read the stashed session (own container == same file the app wrote).
+    static func readAuth() -> WidgetAuth? {
+        guard let url = ownDir()?.appendingPathComponent(authFileName),
+              let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONDecoder().decode(WidgetAuth.self, from: data)
+    }
+
+    /// Widget side — persist a refreshed session back for future taps.
+    static func saveAuthLocal(_ a: WidgetAuth) {
+        guard let url = ownDir()?.appendingPathComponent(authFileName),
+              let data = try? JSONEncoder().encode(a) else { return }
         try? data.write(to: url, options: .atomic)
     }
 
