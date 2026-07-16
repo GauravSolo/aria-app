@@ -54,7 +54,7 @@ enum ThemeMode: String, CaseIterable, Identifiable {
 }
 
 enum AppSection: String, CaseIterable, Identifiable {
-    case today, planner, habits, water, reminders, profile
+    case today, planner, habits, water, reminders, stats, profile
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -63,6 +63,7 @@ enum AppSection: String, CaseIterable, Identifiable {
         case .habits: return "Habits"
         case .water: return "Water"
         case .reminders: return "Reminders"
+        case .stats: return "Stats"
         case .profile: return "Profile"
         }
     }
@@ -73,6 +74,7 @@ enum AppSection: String, CaseIterable, Identifiable {
         case .habits: return "flame"
         case .water: return "drop"
         case .reminders: return "bell"
+        case .stats: return "chart.bar"
         case .profile: return "person.crop.circle"
         }
     }
@@ -106,6 +108,7 @@ struct MainView: View {
             case .habits: HabitsView()
             case .water: WaterView()
             case .reminders: RemindersView()
+            case .stats: StatsView()
             case .profile: ProfileView()
             }
         }
