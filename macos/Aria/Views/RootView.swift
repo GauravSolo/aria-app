@@ -4,6 +4,7 @@ struct RootView: View {
     @StateObject private var auth = AuthModel()
     @StateObject private var store = AppStore()
     @Environment(\.scenePhase) private var scenePhase
+    @AppStorage("theme_mode") private var themeMode = ThemeMode.system.rawValue
 
     var body: some View {
         Group {
@@ -18,6 +19,7 @@ struct RootView: View {
                     .environmentObject(store)
             }
         }
+        .preferredColorScheme((ThemeMode(rawValue: themeMode) ?? .system).colorScheme)
         .task { await auth.bootstrap() }
         .task(id: auth.userId) {
             if let uid = auth.userId { await store.load(uid: uid) }
@@ -32,8 +34,27 @@ struct RootView: View {
     }
 }
 
+enum ThemeMode: String, CaseIterable, Identifiable {
+    case system, light, dark
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .system: return "System"
+        case .light: return "Light"
+        case .dark: return "Dark"
+        }
+    }
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
+    }
+}
+
 enum AppSection: String, CaseIterable, Identifiable {
-    case today, planner, habits, water
+    case today, planner, habits, water, profile
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -41,6 +62,7 @@ enum AppSection: String, CaseIterable, Identifiable {
         case .planner: return "Planner"
         case .habits: return "Habits"
         case .water: return "Water"
+        case .profile: return "Profile"
         }
     }
     var icon: String {
@@ -49,6 +71,7 @@ enum AppSection: String, CaseIterable, Identifiable {
         case .planner: return "checklist"
         case .habits: return "flame"
         case .water: return "drop"
+        case .profile: return "person.crop.circle"
         }
     }
 }
@@ -80,6 +103,7 @@ struct MainView: View {
             case .planner: TasksView()
             case .habits: HabitsView()
             case .water: WaterView()
+            case .profile: ProfileView()
             }
         }
         .frame(minWidth: 820, minHeight: 600)
