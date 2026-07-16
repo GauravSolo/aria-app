@@ -17,6 +17,7 @@ final class AppStore: ObservableObject {
     private var uid: String = ""
 
     func load(uid: String) async {
+        print("ARIA load() start")
         self.uid = uid
         await flushPendingWidgetToggles()
         loading = true
@@ -79,10 +80,12 @@ final class AppStore: ObservableObject {
     // ── Mutations (optimistic: update local state now, persist in background) ────
     func toggleTask(_ t: Task) {
         let now = ISO.now()
+        print("ARIA toggleTask id=\(t.id) recur=\(t.recurrence.rawValue) done=\(t.isCompleted)")
         if t.recurrence == .none {
             let done = !t.isCompleted
-            guard let i = tasks.firstIndex(where: { $0.id == t.id }) else { return }
+            guard let i = tasks.firstIndex(where: { $0.id == t.id }) else { print("ARIA toggleTask: index NOT found"); return }
             tasks[i].isCompleted = done
+            print("ARIA toggleTask: set isCompleted=\(done) at \(i)")
             tasks[i].completedAt = done ? now : nil
             publishWidget()
             let id = t.id
@@ -139,6 +142,7 @@ final class AppStore: ObservableObject {
 
     func setHabitCount(_ h: Habit, count: Int) {
         let now = ISO.now()
+        print("ARIA setHabitCount habit=\(h.id) count=\(count)")
         if let i = habitLogs.firstIndex(where: { $0.habitId == h.id && $0.logDate == today }) {
             let logId = habitLogs[i].id
             if count <= 0 {
