@@ -24,8 +24,8 @@ object ReminderScheduler {
         val am = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
         for (r in reminders) {
             val pi = pendingIntent(context, r)
-            am.cancel(pi)
-            if (!r.is_enabled) continue
+            am.cancel(pi)   // always cancel first — covers deleted/disabled so leaked alarms stop
+            if (r.deleted_at != null || !r.is_enabled) continue
             val at = Logic.nextTriggerMillis(r) ?: continue
             if (at <= System.currentTimeMillis()) continue
             runCatching { am.set(AlarmManager.RTC_WAKEUP, at, pi) }

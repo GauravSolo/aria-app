@@ -163,7 +163,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             saveCache()
             bump()
             publishWidget()
-            runCatching { ReminderScheduler.reschedule(ctx, activeReminders()) }
+            runCatching { ReminderScheduler.reschedule(ctx, reminders.value) }
         }
     }
 
@@ -494,7 +494,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             runCatching { remote() }.onFailure { error.value = it.message }
             runCatching { publishWidget() }
             saveCache()
-            runCatching { ReminderScheduler.reschedule(ctx, activeReminders()) }
+            runCatching { ReminderScheduler.reschedule(ctx, reminders.value) }
         }
     }
 
