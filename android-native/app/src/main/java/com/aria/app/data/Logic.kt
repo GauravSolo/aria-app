@@ -439,6 +439,37 @@ object Logic {
         return null
     }
 
+    /**
+     * Upcoming water-reminder fire times (epoch millis): every `reminder_interval_min`
+     * within [active_start, active_end], starting today, until `cap` future pings are
+     * collected. Empty when reminders are off.
+     */
+    fun waterPingMillis(
+        ws: WaterSettings,
+        now: java.time.LocalDateTime = java.time.LocalDateTime.now(),
+        cap: Int = 16,
+    ): List<Long> {
+        if (!ws.reminder_enabled) return emptyList()
+        val interval = ws.reminder_interval_min.coerceAtLeast(15).toLong()
+        fun hm(s: String) = s.split(":").let { (it.getOrNull(0)?.toIntOrNull() ?: 0) to (it.getOrNull(1)?.toIntOrNull() ?: 0) }
+        val (sh, sm) = hm(ws.active_start)
+        val (eh, em) = hm(ws.active_end)
+        fun toMillis(dt: java.time.LocalDateTime) = dt.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val out = ArrayList<Long>()
+        var day = now.toLocalDate()
+        var guard = 0
+        while (out.size < cap && guard < 4) {
+            var t = day.atTime(sh, sm)
+            val end = day.atTime(eh, em)
+            while (!t.isAfter(end) && out.size < cap) {
+                if (t.isAfter(now)) out.add(toMillis(t))
+                t = t.plusMinutes(interval)
+            }
+            day = day.plusDays(1); guard++
+        }
+        return out
+    }
+
     // ── Range analytics (ported from lib/analytics.ts) ──────────────────────────
     data class HabitBreakdown(val id: String, val name: String, val color: String?, val rate: Int, val current: Int)
     data class MissedTask(val id: String, val title: String, val date: String)

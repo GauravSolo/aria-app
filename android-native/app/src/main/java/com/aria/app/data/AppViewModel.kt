@@ -164,6 +164,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             bump()
             publishWidget()
             runCatching { ReminderScheduler.reschedule(ctx, reminders.value) }
+            runCatching { ReminderScheduler.scheduleWater(ctx, water.value) }
         }
     }
 
@@ -495,6 +496,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             runCatching { publishWidget() }
             saveCache()
             runCatching { ReminderScheduler.reschedule(ctx, reminders.value) }
+            runCatching { ReminderScheduler.scheduleWater(ctx, water.value) }
         }
     }
 
