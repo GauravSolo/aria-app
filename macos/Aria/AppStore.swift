@@ -45,7 +45,7 @@ final class AppStore: ObservableObject {
             reminders = (try? await fetch("reminders")) ?? []
             notifications = (try? await fetch("notification_history")) ?? []
             publishWidget()
-            Notifier.reschedule(activeReminders)
+            Notifier.reschedule(activeReminders, water: water)
         } catch {
             lastError = error.localizedDescription
         }
@@ -332,7 +332,7 @@ final class AppStore: ObservableObject {
             let row = r
             push { _ = try await Supa.client.from("reminders").insert(row).execute() }
         }
-        Notifier.reschedule(activeReminders)
+        Notifier.reschedule(activeReminders, water: water)
     }
 
     func toggleReminder(_ r: Reminder) {
@@ -341,7 +341,7 @@ final class AppStore: ObservableObject {
         reminders[i].updatedAt = ISO.now()
         let row = reminders[i]
         push { _ = try await Supa.client.from("reminders").update(row).eq("id", value: row.id).execute() }
-        Notifier.reschedule(activeReminders)
+        Notifier.reschedule(activeReminders, water: water)
     }
 
     func deleteReminder(_ r: Reminder) {
@@ -351,7 +351,7 @@ final class AppStore: ObservableObject {
         let id = r.id
         let payload: [String: AnyJSON] = ["deleted_at": .string(now), "updated_at": .string(now)]
         push { _ = try await Supa.client.from("reminders").update(payload).eq("id", value: id).execute() }
-        Notifier.reschedule(activeReminders)
+        Notifier.reschedule(activeReminders, water: water)
     }
 
     /// Apply task checkboxes tapped on the widget while the app was closed.
